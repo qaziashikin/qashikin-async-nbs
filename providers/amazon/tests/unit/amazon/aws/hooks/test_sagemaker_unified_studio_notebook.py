@@ -1,0 +1,248 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+from __future__ import annotations
+
+from unittest.mock import MagicMock, patch
+
+import pytest
+
+from airflow.providers.amazon.aws.hooks.sagemaker_unified_studio_notebook import (
+    TWELVE_HOURS_IN_SECONDS,
+    SageMakerUnifiedStudioNotebookHook,
+)
+from airflow.providers.common.compat.sdk import AirflowException
+
+DOMAIN_ID = "dzd_example"
+PROJECT_ID = "proj_example"
+NOTEBOOK_ID = "notebook_123"
+NOTEBOOK_RUN_ID = "run_456"
+
+
+class TestSageMakerUnifiedStudioNotebookHook:
+    @pytest.fixture(autouse=True)
+    def setup(self):
+        with patch(
+            "airflow.providers.amazon.aws.hooks.sagemaker_unified_studio_notebook.boto3.client"
+        ) as mock_boto:
+            self.mock_client = MagicMock()
+            mock_boto.return_value = self.mock_client
+            self.hook = SageMakerUnifiedStudioNotebookHook(
+                domain_id=DOMAIN_ID,
+                project_id=PROJECT_ID,
+                waiter_delay=5,
+            )
+            _ = self.hook.client
+            yield
+
+    # --- __init__ tests ---
+
+    def test_default_timeout(self):
+        """Default waiter_max_attempts derived from 12-hour timeout."""
+        hook = SageMakerUnifiedStudioNotebookHook(
+            domain_id=DOMAIN_ID, project_id=PROJECT_ID, waiter_delay=10
+        )
+        assert hook.waiter_max_attempts == int(TWELVE_HOURS_IN_SECONDS / 10)
+
+    def test_custom_timeout_configuration(self):
+        """waiter_max_attempts derived from timeout_configuration."""
+        hook = SageMakerUnifiedStudioNotebookHook(
+            domain_id=DOMAIN_ID,
+            project_id=PROJECT_ID,
+            waiter_delay=10,
+            timeout_configuration={"run_timeout_in_minutes": 60},
+        )
+        assert hook.waiter_max_attempts == int(60 * 60 / 10)
+
+    def test_timeout_configuration_without_run_timeout(self):
+        """Empty timeout_configuration falls back to default 12-hour timeout."""
+        hook = SageMakerUnifiedStudioNotebookHook(
+            domain_id=DOMAIN_ID,
+            project_id=PROJECT_ID,
+            waiter_delay=10,
+            timeout_configuration={},
+        )
+        assert hook.waiter_max_attempts == int(TWELVE_HOURS_IN_SECONDS / 10)
+
+    # --- client property ---
+
+    def test_client_lazy_initialization(self):
+        """Client is created lazily on first access."""
+        with patch(
+            "airflow.providers.amazon.aws.hooks.sagemaker_unified_studio_notebook.boto3.client"
+        ) as mock_boto:
+            mock_boto.return_value = MagicMock()
+            hook = SageMakerUnifiedStudioNotebookHook(
+                domain_id=DOMAIN_ID, project_id=PROJECT_ID
+            )
+            assert hook._client is None
+            client = hook.client
+            mock_boto.assert_called_once_with("datazone")
+            assert client is not None
+            # Second access should reuse the same client
+            client2 = hook.client
+            assert client2 is client
+            mock_boto.assert_called_once()
+
+    # --- start_notebook_run ---
+
+    def test_start_notebook_run_minimal(self):
+        """Start run with only required params."""
+        self.mock_client.start_notebook_run.return_value = {"notebookRunId": NOTEBOOK_RUN_ID}
+
+        result = self.hook.start_notebook_run(notebook_id=NOTEBOOK_ID)
+
+        assert result == {"notebookRunId": NOTEBOOK_RUN_ID}
+        call_kwargs = self.mock_client.start_notebook_run.call_args[1]
+        assert call_kwargs["domain_id"] == DOMAIN_ID
+        assert call_kwargs["project_id"] == PROJECT_ID
+        assert call_kwargs["notebook_id"] == NOTEBOOK_ID
+        assert "client_token" in call_kwargs
+        # Optional params should not be present
+        assert "notebook_parameters" not in call_kwargs
+        assert "compute_configuration" not in call_kwargs
+        assert "timeout_configuration" not in call_kwargs
+        assert "trigger_source" not in call_kwargs
+
+    def test_start_notebook_run_all_params(self):
+        """Start run with all optional params provided."""
+        self.mock_client.start_notebook_run.return_value = {"notebookRunId": NOTEBOOK_RUN_ID}
+
+        result = self.hook.start_notebook_run(
+            notebook_id=NOTEBOOK_ID,
+            client_token="my-token",
+            notebook_parameters={"param1": "value1"},
+            compute_configuration={"instance_type": "ml.m5.large"},
+            timeout_configuration={"run_timeout_in_minutes": 120},
+            workflow_name="my_dag",
+        )
+
+        assert result == {"notebookRunId": NOTEBOOK_RUN_ID}
+        call_kwargs = self.mock_client.start_notebook_run.call_args[1]
+        assert call_kwargs["client_token"] == "my-token"
+        assert call_kwargs["notebook_parameters"] == {"param1": "value1"}
+        assert call_kwargs["compute_configuration"] == {"instance_type": "ml.m5.large"}
+        assert call_kwargs["timeout_configuration"] == {"run_timeout_in_minutes": 120}
+        assert call_kwargs["trigger_source"] == {"type": "workflow", "workflow_name": "my_dag"}
+
+    def test_start_notebook_run_auto_generates_client_token(self):
+        """client_token is auto-generated as a UUID when not provided."""
+        self.mock_client.start_notebook_run.return_value = {}
+
+        self.hook.start_notebook_run(notebook_id=NOTEBOOK_ID)
+
+        call_kwargs = self.mock_client.start_notebook_run.call_args[1]
+        token = call_kwargs["client_token"]
+        # UUID4 format: 8-4-4-4-12 hex chars
+        assert len(token) == 36
+        assert token.count("-") == 4
+
+    # --- get_notebook_run ---
+
+    def test_get_notebook_run(self):
+        """get_notebook_run passes correct params to the client."""
+        expected = {"status": "COMPLETED", "notebookRunId": NOTEBOOK_RUN_ID}
+        self.mock_client.get_notebook_run.return_value = expected
+
+        result = self.hook.get_notebook_run(NOTEBOOK_RUN_ID)
+
+        assert result == expected
+        self.mock_client.get_notebook_run.assert_called_once_with(
+            domain_id=DOMAIN_ID,
+            notebook_run_id=NOTEBOOK_RUN_ID,
+        )
+
+    # --- _handle_state ---
+
+    def test_handle_state_in_progress(self):
+        """In-progress states return None."""
+        for status in ("IN_PROGRESS", "STARTING", "STOPPING"):
+            result = self.hook._handle_state(NOTEBOOK_RUN_ID, status, "")
+            assert result is None
+
+    def test_handle_state_completed(self):
+        """COMPLETED state returns success dict."""
+        result = self.hook._handle_state(NOTEBOOK_RUN_ID, "COMPLETED", "")
+        assert result == {"Status": "COMPLETED", "NotebookRunId": NOTEBOOK_RUN_ID}
+
+    def test_handle_state_failed_with_error_message(self):
+        """Failed state with error message raises AirflowException with that message."""
+        with pytest.raises(AirflowException, match="Something went wrong"):
+            self.hook._handle_state(NOTEBOOK_RUN_ID, "FAILED", "Something went wrong")
+
+    def test_handle_state_failed_empty_error_message(self):
+        """Failed state with empty error message raises AirflowException with status info."""
+        with pytest.raises(AirflowException, match=f"Exiting notebook run {NOTEBOOK_RUN_ID} State: FAILED"):
+            self.hook._handle_state(NOTEBOOK_RUN_ID, "FAILED", "")
+
+    def test_handle_state_unexpected_status(self):
+        """Unexpected status raises AirflowException."""
+        with pytest.raises(AirflowException, match=f"Exiting notebook run {NOTEBOOK_RUN_ID} State: UNKNOWN"):
+            self.hook._handle_state(NOTEBOOK_RUN_ID, "UNKNOWN", "")
+
+    # --- wait_for_notebook_run ---
+
+    @patch("airflow.providers.amazon.aws.hooks.sagemaker_unified_studio_notebook.time.sleep")
+    def test_wait_for_notebook_run_immediate_success(self, mock_sleep):
+        """Run completes on first poll."""
+        self.mock_client.get_notebook_run.return_value = {"status": "COMPLETED"}
+
+        result = self.hook.wait_for_notebook_run(NOTEBOOK_RUN_ID)
+
+        assert result == {"Status": "COMPLETED", "NotebookRunId": NOTEBOOK_RUN_ID}
+        mock_sleep.assert_called_once_with(5)
+
+    @patch("airflow.providers.amazon.aws.hooks.sagemaker_unified_studio_notebook.time.sleep")
+    def test_wait_for_notebook_run_polls_then_succeeds(self, mock_sleep):
+        """Run is in progress for a few polls then completes."""
+        self.mock_client.get_notebook_run.side_effect = [
+            {"status": "STARTING"},
+            {"status": "IN_PROGRESS"},
+            {"status": "COMPLETED"},
+        ]
+
+        result = self.hook.wait_for_notebook_run(NOTEBOOK_RUN_ID)
+
+        assert result == {"Status": "COMPLETED", "NotebookRunId": NOTEBOOK_RUN_ID}
+        assert mock_sleep.call_count == 3
+
+    @patch("airflow.providers.amazon.aws.hooks.sagemaker_unified_studio_notebook.time.sleep")
+    def test_wait_for_notebook_run_fails(self, mock_sleep):
+        """Run fails with an error message."""
+        self.mock_client.get_notebook_run.return_value = {
+            "status": "FAILED",
+            "errorMessage": "Notebook crashed",
+        }
+
+        with pytest.raises(AirflowException, match="Notebook crashed"):
+            self.hook.wait_for_notebook_run(NOTEBOOK_RUN_ID)
+
+    @patch("airflow.providers.amazon.aws.hooks.sagemaker_unified_studio_notebook.time.sleep")
+    def test_wait_for_notebook_run_timeout(self, mock_sleep):
+        """Run times out after max attempts."""
+        hook = SageMakerUnifiedStudioNotebookHook(
+            domain_id=DOMAIN_ID,
+            project_id=PROJECT_ID,
+            waiter_delay=5,
+            timeout_configuration={"run_timeout_in_minutes": 1},
+        )
+        hook._client = self.mock_client
+        self.mock_client.get_notebook_run.return_value = {"status": "IN_PROGRESS"}
+
+        with pytest.raises(AirflowException, match="Execution timed out"):
+            hook.wait_for_notebook_run(NOTEBOOK_RUN_ID)
+
+        assert self.mock_client.get_notebook_run.call_count == 12
