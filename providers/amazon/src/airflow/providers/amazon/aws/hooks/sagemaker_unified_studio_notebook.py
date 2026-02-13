@@ -94,7 +94,22 @@ class SageMakerUnifiedStudioNotebookHook(BaseHook):
         """Lazy-initialized boto3 DataZone client."""
         if self._client is None:
             self._client = boto3.client("datazone")
+            self._validate_api_availability()
         return self._client
+
+    def _validate_api_availability(self):
+        """Verify that the NotebookRun APIs are available in the installed boto3/botocore version.
+
+        :raises AirflowException: If the required APIs are not available.
+        """
+        required_methods = ("start_notebook_run", "get_notebook_run")
+        for method_name in required_methods:
+            if not hasattr(self._client, method_name):
+                raise AirflowException(
+                    f"The '{method_name}' API is not available in the installed boto3/botocore version. "
+                    "Please upgrade boto3 and botocore to a version that supports the DataZone "
+                    "NotebookRun APIs: pip install --upgrade boto3 botocore"
+                )
 
     def start_notebook_run(
         self,

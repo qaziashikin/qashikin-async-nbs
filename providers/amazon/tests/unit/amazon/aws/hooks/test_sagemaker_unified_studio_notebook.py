@@ -246,3 +246,46 @@ class TestSageMakerUnifiedStudioNotebookHook:
             hook.wait_for_notebook_run(NOTEBOOK_RUN_ID)
 
         assert self.mock_client.get_notebook_run.call_count == 12
+
+    # --- _validate_api_availability ---
+
+    def test_validate_api_availability_missing_start_notebook_run(self):
+        """Raises AirflowException when start_notebook_run is not available on the client."""
+        with patch(
+            "airflow.providers.amazon.aws.hooks.sagemaker_unified_studio_notebook.boto3.client"
+        ) as mock_boto:
+            mock_client = MagicMock(spec=[])  # no APIs available
+            mock_boto.return_value = mock_client
+            hook = SageMakerUnifiedStudioNotebookHook(
+                domain_id=DOMAIN_ID, project_id=PROJECT_ID
+            )
+            with pytest.raises(AirflowException, match="start_notebook_run.*not available"):
+                hook.client
+
+    def test_validate_api_availability_missing_get_notebook_run(self):
+        """Raises AirflowException when get_notebook_run is not available on the client."""
+        with patch(
+            "airflow.providers.amazon.aws.hooks.sagemaker_unified_studio_notebook.boto3.client"
+        ) as mock_boto:
+            # Client has start_notebook_run API but not get_notebook_run API
+            mock_client = MagicMock(spec=["start_notebook_run"])
+            mock_boto.return_value = mock_client
+            hook = SageMakerUnifiedStudioNotebookHook(
+                domain_id=DOMAIN_ID, project_id=PROJECT_ID
+            )
+            with pytest.raises(AirflowException, match="get_notebook_run.*not available"):
+                hook.client
+
+    def test_validate_api_availability_passes_when_apis_present(self):
+        """No exception when both required APIs are present on the client."""
+        with patch(
+            "airflow.providers.amazon.aws.hooks.sagemaker_unified_studio_notebook.boto3.client"
+        ) as mock_boto:
+            mock_client = MagicMock()  # MagicMock has all attributes by default
+            mock_boto.return_value = mock_client
+            hook = SageMakerUnifiedStudioNotebookHook(
+                domain_id=DOMAIN_ID, project_id=PROJECT_ID
+            )
+            # Should not raise
+            client = hook.client
+            assert client is mock_client
