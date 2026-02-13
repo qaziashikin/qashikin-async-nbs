@@ -188,25 +188,31 @@ class SageMakerUnifiedStudioNotebookHook(BaseHook):
         :return: A dict with Status and NotebookRunId on success, None if still in progress.
         :raises AirflowException: If the run has failed.
         """
-        in_progress_states = {"IN_PROGRESS", "STARTING", "STOPPING"}
-        success_states = {"COMPLETED"}
+        in_progress_states = {"QUEUED", "STARTING", "RUNNING", "STOPPING"}
+        finished_states = {"SUCCEEDED", "STOPPED"}
+        failure_states = {"FAILED"}
 
         if status in in_progress_states:
-            info_message = (
-                f"Notebook run {notebook_run_id} is still in progress with state: {status}, "
-                f"will check for a terminal status again in {self.waiter_delay}s"
+            self.log.info(
+                "Notebook run %s is still in progress with state: %s, "
+                "will check for a terminal status again in %ss",
+                notebook_run_id,
+                status,
+                self.waiter_delay,
             )
-            self.log.info(info_message)
             return None
 
         execution_message = f"Exiting notebook run {notebook_run_id} State: {status}"
 
-        if status in success_states:
+        if status in finished_states:
             self.log.info(execution_message)
             return {"Status": status, "NotebookRunId": notebook_run_id}
 
-        log_error_message = f"Notebook run {notebook_run_id} failed with error: {error_message}"
-        self.log.error(log_error_message)
+        if status in failure_states:
+            self.log.error("Notebook run %s failed with error: %s", notebook_run_id, error_message)
+        else:
+            self.log.error("Notebook run %s reached unexpected state: %s", notebook_run_id, status)
+
         if error_message == "":
             error_message = execution_message
         raise AirflowException(error_message)

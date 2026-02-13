@@ -169,22 +169,27 @@ class TestSageMakerUnifiedStudioNotebookHook:
 
     def test_handle_state_in_progress(self):
         """In-progress states return None."""
-        for status in ("IN_PROGRESS", "STARTING", "STOPPING"):
+        for status in ("QUEUED", "STARTING", "RUNNING", "STOPPING"):
             result = self.hook._handle_state(NOTEBOOK_RUN_ID, status, "")
             assert result is None
 
-    def test_handle_state_completed(self):
-        """COMPLETED state returns success dict."""
-        result = self.hook._handle_state(NOTEBOOK_RUN_ID, "COMPLETED", "")
-        assert result == {"Status": "COMPLETED", "NotebookRunId": NOTEBOOK_RUN_ID}
+    def test_handle_state_succeeded(self):
+        """SUCCEEDED state returns success dict."""
+        result = self.hook._handle_state(NOTEBOOK_RUN_ID, "SUCCEEDED", "")
+        assert result == {"Status": "SUCCEEDED", "NotebookRunId": NOTEBOOK_RUN_ID}
+
+    def test_handle_state_stopped(self):
+        """STOPPED is a finished state and returns success dict."""
+        result = self.hook._handle_state(NOTEBOOK_RUN_ID, "STOPPED", "")
+        assert result == {"Status": "STOPPED", "NotebookRunId": NOTEBOOK_RUN_ID}
 
     def test_handle_state_failed_with_error_message(self):
-        """Failed state with error message raises AirflowException with that message."""
+        """FAILED state with error message raises AirflowException with that message."""
         with pytest.raises(AirflowException, match="Something went wrong"):
             self.hook._handle_state(NOTEBOOK_RUN_ID, "FAILED", "Something went wrong")
 
     def test_handle_state_failed_empty_error_message(self):
-        """Failed state with empty error message raises AirflowException with status info."""
+        """FAILED state with empty error message raises AirflowException with status info."""
         with pytest.raises(AirflowException, match=f"Exiting notebook run {NOTEBOOK_RUN_ID} State: FAILED"):
             self.hook._handle_state(NOTEBOOK_RUN_ID, "FAILED", "")
 
@@ -198,26 +203,27 @@ class TestSageMakerUnifiedStudioNotebookHook:
     @patch("airflow.providers.amazon.aws.hooks.sagemaker_unified_studio_notebook.time.sleep")
     def test_wait_for_notebook_run_immediate_success(self, mock_sleep):
         """Run completes on first poll."""
-        self.mock_client.get_notebook_run.return_value = {"status": "COMPLETED"}
+        self.mock_client.get_notebook_run.return_value = {"status": "SUCCEEDED"}
 
         result = self.hook.wait_for_notebook_run(NOTEBOOK_RUN_ID)
 
-        assert result == {"Status": "COMPLETED", "NotebookRunId": NOTEBOOK_RUN_ID}
+        assert result == {"Status": "SUCCEEDED", "NotebookRunId": NOTEBOOK_RUN_ID}
         mock_sleep.assert_called_once_with(5)
 
     @patch("airflow.providers.amazon.aws.hooks.sagemaker_unified_studio_notebook.time.sleep")
     def test_wait_for_notebook_run_polls_then_succeeds(self, mock_sleep):
         """Run is in progress for a few polls then completes."""
         self.mock_client.get_notebook_run.side_effect = [
+            {"status": "QUEUED"},
             {"status": "STARTING"},
-            {"status": "IN_PROGRESS"},
-            {"status": "COMPLETED"},
+            {"status": "RUNNING"},
+            {"status": "SUCCEEDED"},
         ]
 
         result = self.hook.wait_for_notebook_run(NOTEBOOK_RUN_ID)
 
-        assert result == {"Status": "COMPLETED", "NotebookRunId": NOTEBOOK_RUN_ID}
-        assert mock_sleep.call_count == 3
+        assert result == {"Status": "SUCCEEDED", "NotebookRunId": NOTEBOOK_RUN_ID}
+        assert mock_sleep.call_count == 4
 
     @patch("airflow.providers.amazon.aws.hooks.sagemaker_unified_studio_notebook.time.sleep")
     def test_wait_for_notebook_run_fails(self, mock_sleep):
@@ -240,7 +246,7 @@ class TestSageMakerUnifiedStudioNotebookHook:
             timeout_configuration={"run_timeout_in_minutes": 1},
         )
         hook._client = self.mock_client
-        self.mock_client.get_notebook_run.return_value = {"status": "IN_PROGRESS"}
+        self.mock_client.get_notebook_run.return_value = {"status": "RUNNING"}
 
         with pytest.raises(AirflowException, match="Execution timed out"):
             hook.wait_for_notebook_run(NOTEBOOK_RUN_ID)
