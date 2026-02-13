@@ -107,8 +107,8 @@ class SageMakerUnifiedStudioNotebookHook(BaseHook):
             if not hasattr(self._client, method_name):
                 raise AirflowException(
                     f"The '{method_name}' API is not available in the installed boto3/botocore version. "
-                    "Please upgrade boto3 and botocore to a version that supports the DataZone "
-                    "NotebookRun APIs: pip install --upgrade boto3 botocore"
+                    "Please upgrade boto3/botocore to a version that supports the DataZone "
+                    "NotebookRun APIs."
                 )
 
     def start_notebook_run(
