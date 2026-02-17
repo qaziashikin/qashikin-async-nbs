@@ -23,7 +23,10 @@ import pytest
 from airflow.providers.amazon.aws.operators.sagemaker_unified_studio_notebook import (
     SageMakerUnifiedStudioNotebookOperator,
 )
-from airflow.providers.common.compat.sdk import AirflowException
+from airflow.providers.amazon.aws.triggers.sagemaker_unified_studio_notebook import (
+    SageMakerUnifiedStudioNotebookTrigger,
+)
+from airflow.providers.common.compat.sdk import AirflowException, TaskDeferred
 
 TASK_ID = "test_notebook_run"
 NOTEBOOK_ID = "nb-1234567890"
@@ -60,7 +63,9 @@ class TestSageMakerUnifiedStudioNotebookOperator:
         assert op.notebook_parameters is None
         assert op.compute_configuration is None
         assert op.timeout_configuration is None
+        assert op.wait_for_completion is True
         assert op.waiter_delay == 10
+        assert op.deferrable is False
 
     def test_init_all_params(self):
         op = SageMakerUnifiedStudioNotebookOperator(
@@ -72,13 +77,17 @@ class TestSageMakerUnifiedStudioNotebookOperator:
             notebook_parameters={"key": "val"},
             compute_configuration={"instance_type": "ml.m5.large"},
             timeout_configuration={"run_timeout_in_minutes": 60},
+            wait_for_completion=False,
             waiter_delay=30,
+            deferrable=True,
         )
         assert op.client_token == "tok-123"
         assert op.notebook_parameters == {"key": "val"}
         assert op.compute_configuration == {"instance_type": "ml.m5.large"}
         assert op.timeout_configuration == {"run_timeout_in_minutes": 60}
+        assert op.wait_for_completion is False
         assert op.waiter_delay == 30
+        assert op.deferrable is True
 
     # --- hook property ---
 
@@ -245,3 +254,109 @@ class TestSageMakerUnifiedStudioNotebookOperator:
         assert call_kwargs["notebook_parameters"] is None
         assert call_kwargs["compute_configuration"] is None
         assert call_kwargs["timeout_configuration"] is None
+
+    # --- wait_for_completion=False ---
+
+    @patch(HOOK_PATH)
+    def test_execute_no_wait(self, mock_hook_cls):
+        """When wait_for_completion=False, execute returns immediately without polling."""
+        mock_hook = mock_hook_cls.return_value
+        mock_hook.start_notebook_run.return_value = {"notebook_run_id": NOTEBOOK_RUN_ID}
+
+        op = SageMakerUnifiedStudioNotebookOperator(
+            task_id=TASK_ID,
+            notebook_id=NOTEBOOK_ID,
+            domain_id=DOMAIN_ID,
+            project_id=PROJECT_ID,
+            wait_for_completion=False,
+        )
+        result = op.execute(_make_context())
+
+        assert result == NOTEBOOK_RUN_ID
+        mock_hook.start_notebook_run.assert_called_once()
+        mock_hook.wait_for_notebook_run.assert_not_called()
+
+    # --- deferrable mode ---
+
+    @patch(HOOK_PATH)
+    def test_execute_deferrable(self, mock_hook_cls):
+        """When deferrable=True, execute defers to the trigger instead of polling."""
+        mock_hook = mock_hook_cls.return_value
+        mock_hook.start_notebook_run.return_value = {"notebook_run_id": NOTEBOOK_RUN_ID}
+
+        op = SageMakerUnifiedStudioNotebookOperator(
+            task_id=TASK_ID,
+            notebook_id=NOTEBOOK_ID,
+            domain_id=DOMAIN_ID,
+            project_id=PROJECT_ID,
+            deferrable=True,
+            waiter_delay=20,
+            timeout_configuration={"run_timeout_in_minutes": 120},
+        )
+
+        with pytest.raises(TaskDeferred) as exc_info:
+            op.execute(_make_context())
+
+        trigger = exc_info.value.trigger
+        assert isinstance(trigger, SageMakerUnifiedStudioNotebookTrigger)
+        assert trigger.notebook_run_id == NOTEBOOK_RUN_ID
+        assert trigger.domain_id == DOMAIN_ID
+        assert trigger.project_id == PROJECT_ID
+        assert trigger.waiter_delay == 20
+        assert trigger.timeout_configuration == {"run_timeout_in_minutes": 120}
+        assert exc_info.value.method_name == "execute_complete"
+        mock_hook.wait_for_notebook_run.assert_not_called()
+
+    @patch(HOOK_PATH)
+    def test_execute_deferrable_overrides_wait_for_completion(self, mock_hook_cls):
+        """Deferrable takes precedence over wait_for_completion=False."""
+        mock_hook = mock_hook_cls.return_value
+        mock_hook.start_notebook_run.return_value = {"notebook_run_id": NOTEBOOK_RUN_ID}
+
+        op = SageMakerUnifiedStudioNotebookOperator(
+            task_id=TASK_ID,
+            notebook_id=NOTEBOOK_ID,
+            domain_id=DOMAIN_ID,
+            project_id=PROJECT_ID,
+            deferrable=True,
+            wait_for_completion=False,
+        )
+
+        with pytest.raises(TaskDeferred):
+            op.execute(_make_context())
+
+        mock_hook.wait_for_notebook_run.assert_not_called()
+
+    # --- execute_complete ---
+
+    def test_execute_complete_success(self):
+        op = SageMakerUnifiedStudioNotebookOperator(
+            task_id=TASK_ID,
+            notebook_id=NOTEBOOK_ID,
+            domain_id=DOMAIN_ID,
+            project_id=PROJECT_ID,
+        )
+        event = {"status": "success", "notebook_run_id": NOTEBOOK_RUN_ID}
+        result = op.execute_complete(context=_make_context(), event=event)
+        assert result == NOTEBOOK_RUN_ID
+
+    def test_execute_complete_failure(self):
+        op = SageMakerUnifiedStudioNotebookOperator(
+            task_id=TASK_ID,
+            notebook_id=NOTEBOOK_ID,
+            domain_id=DOMAIN_ID,
+            project_id=PROJECT_ID,
+        )
+        event = {"status": "failed", "notebook_run_id": NOTEBOOK_RUN_ID, "message": "OOM"}
+        with pytest.raises(AirflowException, match="Notebook run failed"):
+            op.execute_complete(context=_make_context(), event=event)
+
+    def test_execute_complete_none_event(self):
+        op = SageMakerUnifiedStudioNotebookOperator(
+            task_id=TASK_ID,
+            notebook_id=NOTEBOOK_ID,
+            domain_id=DOMAIN_ID,
+            project_id=PROJECT_ID,
+        )
+        with pytest.raises(AirflowException, match="event is None"):
+            op.execute_complete(context=_make_context(), event=None)

@@ -24,12 +24,16 @@ Studio.
 from __future__ import annotations
 
 from functools import cached_property
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from airflow.providers.amazon.aws.hooks.sagemaker_unified_studio_notebook import (
     SageMakerUnifiedStudioNotebookHook,
 )
-from airflow.providers.common.compat.sdk import AirflowException, BaseOperator
+from airflow.providers.amazon.aws.triggers.sagemaker_unified_studio_notebook import (
+    SageMakerUnifiedStudioNotebookTrigger,
+)
+from airflow.providers.amazon.aws.utils import validate_execute_complete_event
+from airflow.providers.common.compat.sdk import AirflowException, BaseOperator, conf
 
 if TYPE_CHECKING:
     from airflow.sdk import Context
@@ -70,7 +74,13 @@ class SageMakerUnifiedStudioNotebookOperator(BaseOperator):
         Example: {"instance_type": "ml.m5.large"}
     :param timeout_configuration: Optional timeout settings.
         Example: {"run_timeout_in_minutes": 1440}
+    :param wait_for_completion: If True, wait for the notebook run to finish before
+        completing the task. If False, the operator returns immediately after starting
+        the run. (default: True) 
     :param waiter_delay: Interval in seconds to poll the notebook run status (default: 10).
+    :param deferrable: If True, the operator will defer polling to the triggerer,
+        freeing up the worker slot while waiting. This implies waiting for completion.
+        (default: False)
 
     .. seealso::
         For more information on how to use this operator, take a look at the guide:
@@ -87,7 +97,9 @@ class SageMakerUnifiedStudioNotebookOperator(BaseOperator):
         notebook_parameters: dict | None = None,
         compute_configuration: dict | None = None,
         timeout_configuration: dict | None = None,
+        wait_for_completion: bool = True,
         waiter_delay: int = 10,
+        deferrable: bool = conf.getboolean("operators", "default_deferrable", fallback=False),
         **kwargs,
     ):
         super().__init__(task_id=task_id, **kwargs)
@@ -98,7 +110,9 @@ class SageMakerUnifiedStudioNotebookOperator(BaseOperator):
         self.notebook_parameters = notebook_parameters
         self.compute_configuration = compute_configuration
         self.timeout_configuration = timeout_configuration
+        self.wait_for_completion = wait_for_completion
         self.waiter_delay = waiter_delay
+        self.deferrable = deferrable
 
     @cached_property
     def hook(self) -> SageMakerUnifiedStudioNotebookHook:
@@ -129,7 +143,29 @@ class SageMakerUnifiedStudioNotebookOperator(BaseOperator):
         notebook_run_id = response["notebook_run_id"]
         self.log.info("Started notebook run %s for notebook %s", notebook_run_id, self.notebook_id)
 
-        self.hook.wait_for_notebook_run(notebook_run_id)
-        self.log.info("Notebook run %s completed for notebook %s", notebook_run_id, self.notebook_id)
+        if self.deferrable:
+            self.defer(
+                trigger=SageMakerUnifiedStudioNotebookTrigger(
+                    notebook_run_id=notebook_run_id,
+                    domain_id=self.domain_id,
+                    project_id=self.project_id,
+                    waiter_delay=self.waiter_delay,
+                    timeout_configuration=self.timeout_configuration,
+                ),
+                method_name="execute_complete",
+            )
+        elif self.wait_for_completion:
+            self.hook.wait_for_notebook_run(notebook_run_id)
+            self.log.info("Notebook run %s completed for notebook %s", notebook_run_id, self.notebook_id)
 
+        return notebook_run_id
+
+    def execute_complete(self, context: Context, event: dict[str, Any] | None = None) -> str:
+        validated_event = validate_execute_complete_event(event)
+
+        if validated_event.get("status") != "success":
+            raise AirflowException(f"Notebook run failed: {validated_event}")
+
+        notebook_run_id = validated_event["notebook_run_id"]
+        self.log.info("Notebook run %s completed for notebook %s", notebook_run_id, self.notebook_id)
         return notebook_run_id
