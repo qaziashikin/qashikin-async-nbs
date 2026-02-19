@@ -37,11 +37,9 @@ if TYPE_CHECKING:
 
 class SageMakerUnifiedStudioNotebookSensor(BaseSensorOperator):
     """
-    Poll the DataZone GetNotebookRun API until the run reaches a terminal state.
+    Polls a SageMakerUnifiedStudio Workflow asynchronous Notebook execution until it reaches a terminal state.
 
-    This sensor uses the new DataZone NotebookRun APIs directly via boto3,
-    requiring ``domain_id``, ``project_id``, and ``notebook_run_id`` to monitor
-    a run that was started by the ``SageMakerUnifiedStudioNotebookOperator``.
+    'SUCCEEDED', 'FAILED', 'STOPPED'
 
     Examples:
      .. code-block:: python
@@ -57,14 +55,10 @@ class SageMakerUnifiedStudioNotebookSensor(BaseSensorOperator):
             notebook_run_id="nr-1234567890",
         )
 
-    :param domain_id: The ID of the DataZone domain containing the notebook.
-    :param project_id: The ID of the DataZone project containing the notebook.
+    :param domain_id: The ID of the SageMaker Unified Studio domain containing the notebook.
+    :param project_id: The ID of the SageMaker Unified Studio project containing the notebook.
     :param notebook_run_id: The ID of the notebook run to monitor.
         This is returned by the ``SageMakerUnifiedStudioNotebookOperator``.
-
-    .. seealso::
-        For more information on how to use this sensor, take a look at the guide:
-        :ref:`howto/sensor:SageMakerUnifiedStudioNotebookSensor`
     """
 
     def __init__(

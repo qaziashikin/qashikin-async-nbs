@@ -44,8 +44,8 @@ class SageMakerUnifiedStudioNotebookOperator(BaseOperator):
     Execute a notebook asynchronously in SageMaker Unified Studio.
 
     This operator calls the DataZone StartNotebookRun API to kick off
-    headless notebook execution, then polls GetNotebookRun until the
-    run reaches a terminal state.
+    headless notebook execution, and, when not configured otherwise, polls 
+    the GetNotebookRun API until the run reaches a terminal state.
 
     Examples:
      .. code-block:: python
@@ -66,8 +66,8 @@ class SageMakerUnifiedStudioNotebookOperator(BaseOperator):
 
     :param task_id: A unique, meaningful id for the task.
     :param notebook_id: The ID of the notebook to execute.
-    :param domain_id: The ID of the DataZone domain containing the notebook.
-    :param project_id: The ID of the DataZone project containing the notebook.
+    :param domain_id: The ID of the SageMaker Unified Studio domain containing the notebook.
+    :param project_id: The ID of the SageMaker Unified Studio project containing the notebook.
     :param client_token: Optional idempotency token. Auto-generated if not provided.
     :param notebook_parameters: Optional dict of parameters to pass to the notebook.
     :param compute_configuration: Optional compute config.
@@ -78,9 +78,8 @@ class SageMakerUnifiedStudioNotebookOperator(BaseOperator):
         completing the task. If False, the operator returns immediately after starting
         the run. (default: True) 
     :param waiter_delay: Interval in seconds to poll the notebook run status (default: 10).
-    :param deferrable: If True, the operator will defer polling to the triggerer,
-        freeing up the worker slot while waiting. This implies waiting for completion.
-        (default: False)
+    :param deferrable: If True, the operator will defer polling to the trigger,
+        freeing up the worker slot while waiting. (default: False)
 
     .. seealso::
         For more information on how to use this operator, take a look at the guide:

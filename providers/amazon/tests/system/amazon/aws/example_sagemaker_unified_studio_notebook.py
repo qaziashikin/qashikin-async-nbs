@@ -75,8 +75,8 @@ with DAG(
 
     # [START howto_operator_sagemaker_unified_studio_notebook]
     run_notebook = SageMakerUnifiedStudioNotebookOperator(
-        task_id="run_notebook",
-        notebook_id=notebook_id,
+        task_id="notebook-task",
+        notebook_id=notebook_id, 
         domain_id=domain_id,
         project_id=project_id,
         wait_for_completion=True,
@@ -85,30 +85,49 @@ with DAG(
     )
     # [END howto_operator_sagemaker_unified_studio_notebook]
 
-    # [START howto_operator_sagemaker_unified_studio_notebook_deferrable]
-    run_notebook_deferrable = SageMakerUnifiedStudioNotebookOperator(
-        task_id="run_notebook_deferrable",
-        notebook_id=notebook_id,
+    # [START howto_operator_sagemaker_unified_studio_notebook_with_fields]
+    run_notebook_with_fields = SageMakerUnifiedStudioNotebookOperator(
+        task_id="notebook-with-fields-task",
+        notebook_id=notebook_id, # This should be the notebook asset identifier from within the SageMaker Unified Studio domain
         domain_id=domain_id,
         project_id=project_id,
-        deferrable=True,
-        waiter_delay=10,
+        client_token="unique-idempotency-token", # optional
+        notebook_parameters={
+            "param1": "value1", 
+            "param2": "value2",
+        }, # optional
+        compute_configuration={"instance_type": "ml.m5.large"}, # optional
+        timeout_configuration={"run_timeout_in_minutes": 1440}, # optional
+        wait_for_completion=True, # optional
+        waiter_delay=30, # optional
+        deferrable=False, # optional
+    )
+    # [END howto_operator_sagemaker_unified_studio_notebook_with_fields]
+
+    # [START howto_operator_sagemaker_unified_studio_notebook_deferrable]
+    run_notebook_deferrable = SageMakerUnifiedStudioNotebookOperator(
+        task_id="notebook-deferrable-task",
+        notebook_id=notebook_id, 
+        domain_id=domain_id,
+        project_id=project_id,
+        deferrable=True, # optional
+        waiter_delay=10, # optional
     )
     # [END howto_operator_sagemaker_unified_studio_notebook_deferrable]
 
     # [START howto_sensor_sagemaker_unified_studio_notebook]
     run_sensor = SageMakerUnifiedStudioNotebookSensor(
-        task_id="run_sensor",
+        task_id="notebook-sensor-task",
         domain_id=domain_id,
         project_id=project_id,
         notebook_run_id=run_notebook.output,
-        poke_interval=10,
     )
     # [END howto_sensor_sagemaker_unified_studio_notebook]
 
     chain(
         test_context,
         run_notebook,
+        run_notebook_with_fields,
         run_notebook_deferrable,
         run_sensor,
     )

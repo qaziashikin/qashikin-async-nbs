@@ -37,7 +37,7 @@ TWELVE_HOURS_IN_SECONDS = 12 * 60 * 60
 
 class SageMakerUnifiedStudioNotebookTrigger(BaseTrigger):
     """
-    Poll the DataZone GetNotebookRun API asynchronously until the run reaches a terminal state.
+    Watches an asynchronous notebook job, triggering when it reaches a terminal state.
 
     :param notebook_run_id: The ID of the notebook run to monitor.
     :param domain_id: The ID of the DataZone domain.

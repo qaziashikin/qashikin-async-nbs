@@ -15,11 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-"""This module contains the Amazon SageMaker Unified Studio Notebook Run hook.
-
-This hook calls the DataZone NotebookRun APIs directly via boto3,
-bypassing the MaxDomePythonSDK layer.
-"""
+"""This module contains the Amazon SageMaker Unified Studio Notebook Run hook."""
 
 from __future__ import annotations
 
@@ -35,10 +31,9 @@ TWELVE_HOURS_IN_SECONDS = 12 * 60 * 60
 
 class SageMakerUnifiedStudioNotebookHook(BaseHook):
     """
-    Interact with DataZone NotebookRun APIs for asynchronous notebook execution.
+    Interact with Sagemaker Unified Studio Workflows for asynchronous notebook execution.
 
-    This hook provides a wrapper around the DataZone StartNotebookRun / GetNotebookRun / StopNotebookRun APIs
-    via boto3.
+    This hook provides a wrapper around the DataZone StartNotebookRun / GetNotebookRun APIs.
 
     Examples:
      .. code-block:: python
