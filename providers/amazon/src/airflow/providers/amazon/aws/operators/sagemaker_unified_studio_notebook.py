@@ -15,7 +15,8 @@
 # specific language governing permissions and limitations
 # under the License.
 
-"""This module contains the Amazon SageMaker Unified Studio Notebook operator.
+"""
+This module contains the Amazon SageMaker Unified Studio Notebook operator.
 
 This operator supports asynchronous notebook execution in SageMaker Unified
 Studio.
@@ -47,7 +48,7 @@ class SageMakerUnifiedStudioNotebookOperator(BaseOperator):
     Execute a notebook asynchronously in SageMaker Unified Studio.
 
     This operator calls the DataZone StartNotebookRun API to kick off
-    headless notebook execution, and, when not configured otherwise, polls 
+    headless notebook execution, and, when not configured otherwise, polls
     the GetNotebookRun API until the run reaches a terminal state.
 
     Examples:
@@ -79,7 +80,7 @@ class SageMakerUnifiedStudioNotebookOperator(BaseOperator):
         Example: {"run_timeout_in_minutes": 1440}
     :param wait_for_completion: If True, wait for the notebook run to finish before
         completing the task. If False, the operator returns immediately after starting
-        the run. (default: True) 
+        the run. (default: True)
     :param waiter_delay: Interval in seconds to poll the notebook run status (default: 10).
     :param deferrable: If True, the operator will defer polling to the trigger,
         freeing up the worker slot while waiting. (default: False)
@@ -135,7 +136,7 @@ class SageMakerUnifiedStudioNotebookOperator(BaseOperator):
         if not self.project_id:
             raise AirflowException("project_id is required")
 
-        workflow_name = context["dag"].dag_id # Workflow name is the same as the dag_id
+        workflow_name = context["dag"].dag_id  # Workflow name is the same as the dag_id
         response = self.hook.start_notebook_run(
             notebook_id=self.notebook_id,
             client_token=self.client_token,

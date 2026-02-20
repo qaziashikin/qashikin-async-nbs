@@ -76,30 +76,30 @@ with DAG(
     # [START howto_operator_sagemaker_unified_studio_notebook]
     run_notebook = SageMakerUnifiedStudioNotebookOperator(
         task_id="notebook-task",
-        notebook_id=notebook_id, # This should be the notebook asset identifier from within the SageMaker Unified Studio domain
+        notebook_id=notebook_id,  # This should be the notebook asset identifier from within the SageMaker Unified Studio domain
         domain_id=domain_id,
         project_id=project_id,
-        client_token="unique-idempotency-token", # optional
+        client_token="unique-idempotency-token",  # optional
         notebook_parameters={
-            "param1": "value1", 
+            "param1": "value1",
             "param2": "value2",
-        }, # optional
-        compute_configuration={"instance_type": "ml.m5.large"}, # optional
-        timeout_configuration={"run_timeout_in_minutes": 1440}, # optional
-        wait_for_completion=True, # optional
-        waiter_delay=30, # optional
-        deferrable=False, # optional
+        },  # optional
+        compute_configuration={"instance_type": "ml.m5.large"},  # optional
+        timeout_configuration={"run_timeout_in_minutes": 1440},  # optional
+        wait_for_completion=True,  # optional
+        waiter_delay=30,  # optional
+        deferrable=False,  # optional
     )
     # [END howto_operator_sagemaker_unified_studio_notebook]
 
     # [START howto_operator_sagemaker_unified_studio_notebook_deferrable]
     run_notebook_deferrable = SageMakerUnifiedStudioNotebookOperator(
         task_id="notebook-deferrable-task",
-        notebook_id=notebook_id, 
+        notebook_id=notebook_id,
         domain_id=domain_id,
         project_id=project_id,
-        deferrable=True, # optional
-        waiter_delay=10, # optional
+        deferrable=True,  # optional
+        waiter_delay=10,  # optional
     )
     # [END howto_operator_sagemaker_unified_studio_notebook_deferrable]
 

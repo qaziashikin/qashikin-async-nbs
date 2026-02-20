@@ -34,6 +34,7 @@ HOOK_PATH = (
     ".SageMakerUnifiedStudioNotebookHook"
 )
 
+
 class TestSageMakerUnifiedStudioNotebookSensor:
     def test_init(self):
         sensor = SageMakerUnifiedStudioNotebookSensor(
@@ -108,9 +109,7 @@ class TestSageMakerUnifiedStudioNotebookSensor:
             notebook_run_id=NOTEBOOK_RUN_ID,
         )
 
-        with pytest.raises(
-            AirflowException, match=f"Exiting notebook run {NOTEBOOK_RUN_ID} State: FAILED"
-        ):
+        with pytest.raises(AirflowException, match=f"Exiting notebook run {NOTEBOOK_RUN_ID} State: FAILED"):
             sensor.poke(context=MagicMock(spec=Context))
 
         mock_hook_instance.get_notebook_run.assert_called_once_with(NOTEBOOK_RUN_ID)
@@ -127,9 +126,7 @@ class TestSageMakerUnifiedStudioNotebookSensor:
             notebook_run_id=NOTEBOOK_RUN_ID,
         )
 
-        with pytest.raises(
-            AirflowException, match=f"Exiting notebook run {NOTEBOOK_RUN_ID} State: STOPPED"
-        ):
+        with pytest.raises(AirflowException, match=f"Exiting notebook run {NOTEBOOK_RUN_ID} State: STOPPED"):
             sensor.poke(context=MagicMock(spec=Context))
 
     @patch(HOOK_PATH)

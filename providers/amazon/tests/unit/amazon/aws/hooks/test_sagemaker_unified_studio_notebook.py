@@ -52,9 +52,7 @@ class TestSageMakerUnifiedStudioNotebookHook:
 
     def test_default_timeout(self):
         """Default waiter_max_attempts derived from 12-hour timeout."""
-        hook = SageMakerUnifiedStudioNotebookHook(
-            domain_id=DOMAIN_ID, project_id=PROJECT_ID, waiter_delay=10
-        )
+        hook = SageMakerUnifiedStudioNotebookHook(domain_id=DOMAIN_ID, project_id=PROJECT_ID, waiter_delay=10)
         assert hook.waiter_max_attempts == int(TWELVE_HOURS_IN_SECONDS / 10)
 
     def test_custom_timeout_configuration(self):
@@ -85,9 +83,7 @@ class TestSageMakerUnifiedStudioNotebookHook:
             "airflow.providers.amazon.aws.hooks.sagemaker_unified_studio_notebook.boto3.client"
         ) as mock_boto:
             mock_boto.return_value = MagicMock()
-            hook = SageMakerUnifiedStudioNotebookHook(
-                domain_id=DOMAIN_ID, project_id=PROJECT_ID
-            )
+            hook = SageMakerUnifiedStudioNotebookHook(domain_id=DOMAIN_ID, project_id=PROJECT_ID)
             assert hook._client is None
             client = hook.client
             mock_boto.assert_called_once_with("datazone")
@@ -262,9 +258,7 @@ class TestSageMakerUnifiedStudioNotebookHook:
         ) as mock_boto:
             mock_client = MagicMock(spec=[])  # no APIs available
             mock_boto.return_value = mock_client
-            hook = SageMakerUnifiedStudioNotebookHook(
-                domain_id=DOMAIN_ID, project_id=PROJECT_ID
-            )
+            hook = SageMakerUnifiedStudioNotebookHook(domain_id=DOMAIN_ID, project_id=PROJECT_ID)
             with pytest.raises(AirflowException, match="start_notebook_run.*not available"):
                 hook.client
 
@@ -276,9 +270,7 @@ class TestSageMakerUnifiedStudioNotebookHook:
             # Client has start_notebook_run API but not get_notebook_run API
             mock_client = MagicMock(spec=["start_notebook_run"])
             mock_boto.return_value = mock_client
-            hook = SageMakerUnifiedStudioNotebookHook(
-                domain_id=DOMAIN_ID, project_id=PROJECT_ID
-            )
+            hook = SageMakerUnifiedStudioNotebookHook(domain_id=DOMAIN_ID, project_id=PROJECT_ID)
             with pytest.raises(AirflowException, match="get_notebook_run.*not available"):
                 hook.client
 
@@ -289,9 +281,7 @@ class TestSageMakerUnifiedStudioNotebookHook:
         ) as mock_boto:
             mock_client = MagicMock()  # MagicMock has all attributes by default
             mock_boto.return_value = mock_client
-            hook = SageMakerUnifiedStudioNotebookHook(
-                domain_id=DOMAIN_ID, project_id=PROJECT_ID
-            )
+            hook = SageMakerUnifiedStudioNotebookHook(domain_id=DOMAIN_ID, project_id=PROJECT_ID)
             # Should not raise
             client = hook.client
             assert client is mock_client

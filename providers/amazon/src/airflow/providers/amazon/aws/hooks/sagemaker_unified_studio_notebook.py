@@ -81,7 +81,9 @@ class SageMakerUnifiedStudioNotebookHook(BaseHook):
         if run_timeout:
             self.waiter_max_attempts = int(run_timeout * 60 / self.waiter_delay)
         else:
-            self.waiter_max_attempts = int(TWELVE_HOURS_IN_SECONDS / self.waiter_delay) # Default timeout is 12 hours
+            self.waiter_max_attempts = int(
+                TWELVE_HOURS_IN_SECONDS / self.waiter_delay
+            )  # Default timeout is 12 hours
         self._client = None
 
     @property
@@ -93,7 +95,8 @@ class SageMakerUnifiedStudioNotebookHook(BaseHook):
         return self._client
 
     def _validate_api_availability(self):
-        """Verify that the NotebookRun APIs are available in the installed boto3/botocore version.
+        """
+        Verify that the NotebookRun APIs are available in the installed boto3/botocore version.
 
         :raises AirflowException: If the required APIs are not available.
         """
@@ -115,7 +118,8 @@ class SageMakerUnifiedStudioNotebookHook(BaseHook):
         timeout_configuration: dict | None = None,
         workflow_name: str | None = None,
     ) -> dict:
-        """Start an asynchronous notebook run via the DataZone StartNotebookRun API.
+        """
+        Start an asynchronous notebook run via the DataZone StartNotebookRun API.
 
         :param notebook_id: The ID of the notebook to execute.
         :param client_token: Idempotency token. Auto-generated if not provided.
@@ -145,7 +149,8 @@ class SageMakerUnifiedStudioNotebookHook(BaseHook):
         return self.client.start_notebook_run(**params)
 
     def get_notebook_run(self, notebook_run_id: str) -> dict:
-        """Get the status of a notebook run via the DataZone GetNotebookRun API.
+        """
+        Get the status of a notebook run via the DataZone GetNotebookRun API.
 
         :param notebook_run_id: The ID of the notebook run.
         :return: The GetNotebookRun API response dict.
@@ -156,13 +161,14 @@ class SageMakerUnifiedStudioNotebookHook(BaseHook):
         )
 
     def wait_for_notebook_run(self, notebook_run_id: str) -> dict:
-        """Poll GetNotebookRun until the run reaches a terminal state.
+        """
+        Poll GetNotebookRun until the run reaches a terminal state.
 
         :param notebook_run_id: The ID of the notebook run to monitor.
         :return: A dict with Status and NotebookRunId on success.
         :raises AirflowException: If the run fails or times out.
         """
-        for attempt in range(1, self.waiter_max_attempts + 1):
+        for _attempt in range(1, self.waiter_max_attempts + 1):
             time.sleep(self.waiter_delay)
             response = self.get_notebook_run(notebook_run_id)
             status = response.get("status")
@@ -175,7 +181,8 @@ class SageMakerUnifiedStudioNotebookHook(BaseHook):
         return self._handle_state(notebook_run_id, "FAILED", "Execution timed out")
 
     def _handle_state(self, notebook_run_id: str, status: str, error_message: str) -> dict | None:
-        """Evaluate the current notebook run state and return or raise accordingly.
+        """
+        Evaluate the current notebook run state and return or raise accordingly.
 
         :param notebook_run_id: The ID of the notebook run.
         :param status: The current status string.

@@ -15,7 +15,8 @@
 # specific language governing permissions and limitations
 # under the License.
 
-"""This module contains the Amazon SageMaker Unified Studio Notebook Run sensor.
+"""
+This module contains the Amazon SageMaker Unified Studio Notebook Run sensor.
 
 This sensor polls the DataZone GetNotebookRun API until the notebook run
 reaches a terminal state.
@@ -82,7 +83,7 @@ class SageMakerUnifiedStudioNotebookSensor(BaseSensorOperator):
             domain_id=self.domain_id,
             project_id=self.project_id,
         )
-        
+
     # override from base sensor
     def poke(self, context: Context) -> bool:
         response = self.hook.get_notebook_run(self.notebook_run_id)
