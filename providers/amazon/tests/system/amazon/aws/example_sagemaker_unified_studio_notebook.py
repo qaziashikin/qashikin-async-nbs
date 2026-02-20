@@ -76,18 +76,6 @@ with DAG(
     # [START howto_operator_sagemaker_unified_studio_notebook]
     run_notebook = SageMakerUnifiedStudioNotebookOperator(
         task_id="notebook-task",
-        notebook_id=notebook_id, 
-        domain_id=domain_id,
-        project_id=project_id,
-        wait_for_completion=True,
-        waiter_delay=10,
-        deferrable=False,
-    )
-    # [END howto_operator_sagemaker_unified_studio_notebook]
-
-    # [START howto_operator_sagemaker_unified_studio_notebook_with_fields]
-    run_notebook_with_fields = SageMakerUnifiedStudioNotebookOperator(
-        task_id="notebook-with-fields-task",
         notebook_id=notebook_id, # This should be the notebook asset identifier from within the SageMaker Unified Studio domain
         domain_id=domain_id,
         project_id=project_id,
@@ -102,7 +90,7 @@ with DAG(
         waiter_delay=30, # optional
         deferrable=False, # optional
     )
-    # [END howto_operator_sagemaker_unified_studio_notebook_with_fields]
+    # [END howto_operator_sagemaker_unified_studio_notebook]
 
     # [START howto_operator_sagemaker_unified_studio_notebook_deferrable]
     run_notebook_deferrable = SageMakerUnifiedStudioNotebookOperator(
@@ -127,7 +115,6 @@ with DAG(
     chain(
         test_context,
         run_notebook,
-        run_notebook_with_fields,
         run_notebook_deferrable,
         run_sensor,
     )

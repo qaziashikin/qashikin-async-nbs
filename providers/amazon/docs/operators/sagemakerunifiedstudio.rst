@@ -24,8 +24,8 @@ brings together AWS data, analytics, artificial intelligence (AI), and machine l
 It provides a place to build, deploy, execute, and monitor end-to-end workflows from a single interface.
 This helps drive collaboration across teams and facilitate agile development.
 
-Airflow provides two sets of operators for running notebooks in SageMaker Unified Studio. They target
-different APIs and suit different use cases.
+Airflow provides different operators for running notebooks in SageMaker Unified Studio. They target
+different APIs and suit different use cases. Be sure to read the descriptions below to understand their use cases.
 
 Prerequisite Tasks
 ------------------
@@ -47,8 +47,8 @@ Run Notebooks via the SageMaker Studio SDK
 
 Use :class:`~airflow.providers.amazon.aws.operators.sagemaker_unified_studio.SageMakerNotebookOperator`
 to execute notebooks, SQL notebooks, and Visual ETL jobs through the SageMaker Studio SDK execution
-client. This operator relies on the ``sagemaker_studio`` Python library, which resolves project S3
-paths, provisions SageMaker Training Jobs, and manages the full execution lifecycle internally.
+client. This operator relies on the ``sagemaker_studio`` Python library, which converts the notebook
+to a ``.ipynb`` file on S3, creates a SageMaker Training Job to run it, and captures outputs from S3.
 
 The notebook is identified by its relative file path within the project (e.g. ``test_notebook.ipynb``).
 
@@ -64,9 +64,14 @@ Run Notebooks via the DataZone NotebookRun API
 ===============================================
 
 Use :class:`~airflow.providers.amazon.aws.operators.sagemaker_unified_studio_notebook.SageMakerUnifiedStudioNotebookOperator`
-to execute notebooks through the DataZone ``StartNotebookRun`` / ``GetNotebookRun`` APIs directly.
-This operator runs notebooks through the kernel server with cell-by-cell execution. Each run provisions 
-its own dedicated compute instance, executes cells sequentially, and stores cell outputs internally. 
+to execute notebooks through the DataZone ``StartNotebookRun`` API.
+Instead of creating a training job, each run provisions its own dedicated compute instance, starts the
+notebook kernel server, and executes cells sequentially. The DataZone ``GetNotebookRun`` API is used to 
+retrieve notebook run information.
+
+Importantly, this operator allows for creating and managing schedules for these notebook runs, with the ability to specify 
+frequencies, compute environment settings, and notebook parameters. API-based execution or event-triggered capabilities outside 
+of SageMaker Unified Studio are also possible with the documented DataZone APIs.
 
 The notebook is identified by its notebook asset ID (e.g. ``nb-1234567890``), along with the
 domain ID and project ID.
@@ -74,8 +79,8 @@ domain ID and project ID.
 .. exampleinclude:: /../../amazon/tests/system/amazon/aws/example_sagemaker_unified_studio_notebook.py
     :language: python
     :dedent: 4
-    :start-after: [START howto_operator_sagemaker_unified_studio_notebook_with_fields]
-    :end-before: [END howto_operator_sagemaker_unified_studio_notebook_with_fields]
+    :start-after: [START howto_operator_sagemaker_unified_studio_notebook]
+    :end-before: [END howto_operator_sagemaker_unified_studio_notebook]
 
 
 Reference

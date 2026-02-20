@@ -29,6 +29,9 @@ from typing import TYPE_CHECKING, Any
 from airflow.providers.amazon.aws.hooks.sagemaker_unified_studio_notebook import (
     SageMakerUnifiedStudioNotebookHook,
 )
+from airflow.providers.amazon.aws.links.sagemaker_unified_studio import (
+    SageMakerUnifiedStudioLink,
+)
 from airflow.providers.amazon.aws.triggers.sagemaker_unified_studio_notebook import (
     SageMakerUnifiedStudioNotebookTrigger,
 )
@@ -85,6 +88,8 @@ class SageMakerUnifiedStudioNotebookOperator(BaseOperator):
         For more information on how to use this operator, take a look at the guide:
         :ref:`howto/operator:SageMakerUnifiedStudioNotebookOperator`
     """
+
+    operator_extra_links = (SageMakerUnifiedStudioLink(),)
 
     def __init__(
         self,
