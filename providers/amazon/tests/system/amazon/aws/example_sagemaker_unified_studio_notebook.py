@@ -74,12 +74,14 @@ with DAG(
     notebook_id = test_context[NOTEBOOK_ID_KEY]
 
     # [START howto_operator_sagemaker_unified_studio_notebook]
+    import time
+
     run_notebook = SageMakerUnifiedStudioNotebookOperator(
         task_id="notebook-task",
         notebook_id=notebook_id,  # This should be the notebook asset identifier from within the SageMaker Unified Studio domain
         domain_id=domain_id,
         project_id=project_id,
-        client_token="unique-idempotency-token",  # optional
+        client_token=f"idempotency-token-{int(time.time())}",  # optional
         notebook_parameters={
             "param1": "value1",
             "param2": "value2",
