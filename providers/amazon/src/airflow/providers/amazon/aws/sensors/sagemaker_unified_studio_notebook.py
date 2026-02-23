@@ -90,7 +90,8 @@ class SageMakerUnifiedStudioNotebookSensor(BaseSensorOperator):
         status = response.get("status", "")
 
         if status in self.success_states:
-            self.log.info("Exiting notebook run %s. State: %s", self.notebook_run_id, status)
+            log_message = f"Exiting notebook run {self.notebook_run_id}. State: {status}"
+            self.log.info(log_message)
             return True
 
         if status in self.in_progress_states:
@@ -102,5 +103,6 @@ class SageMakerUnifiedStudioNotebookSensor(BaseSensorOperator):
 
     def execute(self, context: Context):
         # This will invoke poke method in the base sensor
-        self.log.info("Polling notebook run %s in domain %s", self.notebook_run_id, self.domain_id)
+        log_message = f"Polling notebook run {self.notebook_run_id} in domain {self.domain_id}"
+        self.log.info(log_message)
         super().execute(context=context)

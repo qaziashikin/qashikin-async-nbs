@@ -146,7 +146,8 @@ class SageMakerUnifiedStudioNotebookOperator(BaseOperator):
             workflow_name=workflow_name,
         )
         notebook_run_id = response["notebook_run_id"]
-        self.log.info("Started notebook run %s for notebook %s", notebook_run_id, self.notebook_id)
+        log_message = f"Started notebook run {notebook_run_id} for notebook {self.notebook_id}"
+        self.log.info(log_message)
 
         if self.deferrable:
             self.defer(
@@ -161,7 +162,8 @@ class SageMakerUnifiedStudioNotebookOperator(BaseOperator):
             )
         elif self.wait_for_completion:
             self.hook.wait_for_notebook_run(notebook_run_id)
-            self.log.info("Notebook run %s completed for notebook %s", notebook_run_id, self.notebook_id)
+            log_message = f"Notebook run {notebook_run_id} completed for notebook {self.notebook_id}"
+            self.log.info(log_message)
 
         return notebook_run_id
 
@@ -172,5 +174,6 @@ class SageMakerUnifiedStudioNotebookOperator(BaseOperator):
             raise AirflowException(f"Notebook run did not succeed: {validated_event}")
 
         notebook_run_id = validated_event["notebook_run_id"]
-        self.log.info("Notebook run %s completed for notebook %s", notebook_run_id, self.notebook_id)
+        log_message = f"Notebook run {notebook_run_id} completed for notebook {self.notebook_id}"
+        self.log.info(log_message)
         return notebook_run_id
