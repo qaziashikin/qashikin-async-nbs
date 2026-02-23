@@ -90,13 +90,13 @@ class SageMakerUnifiedStudioNotebookSensor(BaseSensorOperator):
         status = response.get("status", "")
 
         if status in self.success_states:
-            self.log.info("Exiting notebook run %s State: %s", self.notebook_run_id, status)
+            self.log.info("Exiting notebook run %s. State: %s", self.notebook_run_id, status)
             return True
 
         if status in self.in_progress_states:
             return False
 
-        error_message = f"Exiting notebook run {self.notebook_run_id} State: {status}"
+        error_message = f"Exiting notebook run {self.notebook_run_id}. State: {status}"
         self.log.info(error_message)
         raise AirflowException(error_message)
 

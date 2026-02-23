@@ -58,7 +58,7 @@ class SageMakerUnifiedStudioNotebookHook(BaseHook):
     :param waiter_delay: Interval in seconds to poll the notebook run status.
     :param timeout_configuration: Timeout settings for the notebook execution.
         When provided, the maximum number of poll attempts is derived from
-        ``run_timeout_in_minutes * 60 / waiter_delay``. Defaults to a 12-hour timeout when omitted.
+        ``run_timeout_in_minutes * 60 / waiter_delay``. Defaults to 12 hours.
         Example: {"run_timeout_in_minutes": 720}
     :param workflow_name: Name of the workflow (DAG) that triggered this run.
     """
