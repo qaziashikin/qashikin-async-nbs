@@ -168,8 +168,8 @@ class SageMakerUnifiedStudioNotebookOperator(BaseOperator):
     def execute_complete(self, context: Context, event: dict[str, Any] | None = None) -> str:
         validated_event = validate_execute_complete_event(event)
 
-        if validated_event.get("status") != "success":
-            raise AirflowException(f"Notebook run failed: {validated_event}")
+        if validated_event.get("status") != "SUCCEEDED":
+            raise AirflowException(f"Notebook run did not succeed: {validated_event}")
 
         notebook_run_id = validated_event["notebook_run_id"]
         self.log.info("Notebook run %s completed for notebook %s", notebook_run_id, self.notebook_id)

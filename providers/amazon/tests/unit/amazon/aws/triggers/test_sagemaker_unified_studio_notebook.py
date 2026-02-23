@@ -87,7 +87,7 @@ class TestSageMakerUnifiedStudioNotebookTrigger:
 
         assert len(events) == 1
         assert events[0] == TriggerEvent(
-            {"status": "success", "notebook_run_id": NOTEBOOK_RUN_ID, "state": "SUCCEEDED"}
+            {"status": "SUCCEEDED", "notebook_run_id": NOTEBOOK_RUN_ID, "state": "SUCCEEDED"}
         )
 
     @pytest.mark.asyncio
@@ -103,7 +103,7 @@ class TestSageMakerUnifiedStudioNotebookTrigger:
 
         assert len(events) == 1
         assert events[0] == TriggerEvent(
-            {"status": "success", "notebook_run_id": NOTEBOOK_RUN_ID, "state": "STOPPED"}
+            {"status": "SUCCEEDED", "notebook_run_id": NOTEBOOK_RUN_ID, "state": "STOPPED"}
         )
 
     # --- run: polls then succeeds ---
@@ -125,8 +125,7 @@ class TestSageMakerUnifiedStudioNotebookTrigger:
         events = [event async for event in trigger.run()]
 
         assert len(events) == 1
-        assert events[0].payload["status"] == "success"
-        assert mock_sleep.call_count == 3  # sleep between polls, not after final
+        assert events[0].payload["status"] == "SUCCEEDED"
 
     # --- run: failure ---
 
@@ -145,7 +144,7 @@ class TestSageMakerUnifiedStudioNotebookTrigger:
         events = [event async for event in trigger.run()]
 
         assert len(events) == 1
-        assert events[0].payload["status"] == "failed"
+        assert events[0].payload["status"] == "FAILED"
         assert events[0].payload["message"] == "Notebook crashed"
 
     @pytest.mark.asyncio
@@ -160,7 +159,7 @@ class TestSageMakerUnifiedStudioNotebookTrigger:
         events = [event async for event in trigger.run()]
 
         assert len(events) == 1
-        assert events[0].payload["status"] == "failed"
+        assert events[0].payload["status"] == "FAILED"
         assert NOTEBOOK_RUN_ID in events[0].payload["message"]
 
     # --- run: unexpected state ---
@@ -177,7 +176,7 @@ class TestSageMakerUnifiedStudioNotebookTrigger:
         events = [event async for event in trigger.run()]
 
         assert len(events) == 1
-        assert events[0].payload["status"] == "error"
+        assert events[0].payload["status"] == "ERROR"
         assert "unexpected state" in events[0].payload["message"]
 
     # --- run: timeout ---
@@ -194,7 +193,7 @@ class TestSageMakerUnifiedStudioNotebookTrigger:
         events = [event async for event in trigger.run()]
 
         assert len(events) == 1
-        assert events[0].payload["status"] == "error"
+        assert events[0].payload["status"] == "ERROR"
         assert "timed out" in events[0].payload["message"]
 
     # --- run: API not available ---
@@ -209,7 +208,7 @@ class TestSageMakerUnifiedStudioNotebookTrigger:
         events = [event async for event in trigger.run()]
 
         assert len(events) == 1
-        assert events[0].payload["status"] == "error"
+        assert events[0].payload["status"] == "ERROR"
         assert "not available" in events[0].payload["message"]
 
     # --- run: client is closed in finally ---

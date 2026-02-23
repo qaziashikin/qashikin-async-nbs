@@ -204,7 +204,7 @@ class SageMakerUnifiedStudioNotebookHook(BaseHook):
             )
             return None
 
-        execution_message = f"Exiting notebook run {notebook_run_id} State: {status}"
+        execution_message = f"Exiting notebook run {notebook_run_id}. State: {status}"
 
         if status in finished_states:
             self.log.info(execution_message)

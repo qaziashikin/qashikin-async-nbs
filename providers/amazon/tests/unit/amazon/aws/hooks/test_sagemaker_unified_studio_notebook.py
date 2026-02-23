@@ -150,7 +150,7 @@ class TestSageMakerUnifiedStudioNotebookHook:
 
     def test_get_notebook_run(self):
         """get_notebook_run passes correct params to the client."""
-        expected = {"status": "COMPLETED", "notebookRunId": NOTEBOOK_RUN_ID}
+        expected = {"status": "SUCCEEDED", "notebookRunId": NOTEBOOK_RUN_ID}
         self.mock_client.get_notebook_run.return_value = expected
 
         result = self.hook.get_notebook_run(NOTEBOOK_RUN_ID)
@@ -186,12 +186,12 @@ class TestSageMakerUnifiedStudioNotebookHook:
 
     def test_handle_state_failed_empty_error_message(self):
         """FAILED state with empty error message raises AirflowException with status info."""
-        with pytest.raises(AirflowException, match=f"Exiting notebook run {NOTEBOOK_RUN_ID} State: FAILED"):
+        with pytest.raises(AirflowException, match=f"Exiting notebook run {NOTEBOOK_RUN_ID}. State: FAILED"):
             self.hook._handle_state(NOTEBOOK_RUN_ID, "FAILED", "")
 
     def test_handle_state_unexpected_status(self):
         """Unexpected status raises AirflowException."""
-        with pytest.raises(AirflowException, match=f"Exiting notebook run {NOTEBOOK_RUN_ID} State: UNKNOWN"):
+        with pytest.raises(AirflowException, match=f"Exiting notebook run {NOTEBOOK_RUN_ID}. State: UNKNOWN"):
             self.hook._handle_state(NOTEBOOK_RUN_ID, "UNKNOWN", "")
 
     # --- wait_for_notebook_run ---

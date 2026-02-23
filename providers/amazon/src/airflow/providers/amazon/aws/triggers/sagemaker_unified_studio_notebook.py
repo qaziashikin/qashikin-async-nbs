@@ -86,7 +86,7 @@ class SageMakerUnifiedStudioNotebookTrigger(BaseTrigger):
         if not hasattr(client, "get_notebook_run"):
             yield TriggerEvent(
                 {
-                    "status": "error",
+                    "status": "ERROR",
                     "notebook_run_id": self.notebook_run_id,
                     "message": "The 'get_notebook_run' API is not available in the installed "
                     "boto3/botocore version. Please upgrade boto3/botocore to a version "
@@ -110,14 +110,14 @@ class SageMakerUnifiedStudioNotebookTrigger(BaseTrigger):
 
                 if status in FINISHED_STATES:
                     yield TriggerEvent(
-                        {"status": "success", "notebook_run_id": self.notebook_run_id, "state": status}
+                        {"status": "SUCCEEDED", "notebook_run_id": self.notebook_run_id, "state": status}
                     )
                     return
 
                 if status in FAILURE_STATES:
                     yield TriggerEvent(
                         {
-                            "status": "failed",
+                            "status": "FAILED",
                             "notebook_run_id": self.notebook_run_id,
                             "message": error_message or f"Notebook run {self.notebook_run_id} failed",
                         }
@@ -127,7 +127,7 @@ class SageMakerUnifiedStudioNotebookTrigger(BaseTrigger):
                 if status not in IN_PROGRESS_STATES:
                     yield TriggerEvent(
                         {
-                            "status": "error",
+                            "status": "ERROR",
                             "notebook_run_id": self.notebook_run_id,
                             "message": f"Notebook run {self.notebook_run_id} reached unexpected state: {status}",
                         }
@@ -144,7 +144,7 @@ class SageMakerUnifiedStudioNotebookTrigger(BaseTrigger):
 
             yield TriggerEvent(
                 {
-                    "status": "error",
+                    "status": "ERROR",
                     "notebook_run_id": self.notebook_run_id,
                     "message": f"Notebook run {self.notebook_run_id} timed out after {self.waiter_max_attempts} attempts",
                 }
