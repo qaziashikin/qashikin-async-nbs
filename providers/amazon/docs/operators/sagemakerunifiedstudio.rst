@@ -33,17 +33,16 @@ Prerequisite Tasks
 To use these operators, you must do a few things:
 
   * Create a SageMaker Unified Studio domain and project, following the instruction in `AWS documentation <https://docs.aws.amazon.com/sagemaker-unified-studio/latest/userguide/getting-started.html>`__.
-  * Within your project:
-    * If the domain is an IdC domain, navigate to the "Compute > Workflow environments" tab, and click "Create" to create a new MWAA environment.
-    * Create a Jupyter notebook, querybook, Visual ETL job, or SageMaker Unified Studio notebook and save it to your project.
+  * If the domain is an IdC domain, navigate to the "Compute > Workflow environments" tab, and click "Create" to create a new MWAA environment.
+  * Create a Jupyter notebook, querybook, Visual ETL job, or SageMaker Unified Studio notebook and save it to your project.
 
 Operators
 ---------
 
 .. _howto/operator:SageMakerNotebookOperator:
 
-Run Jupyter notebooks, querybooks, and visual ETL jobs
-==========================================
+Run Jupyter notebooks, Querybooks, and Visual ETL jobs
+======================================================
 
 Use :class:`~airflow.providers.amazon.aws.operators.sagemaker_unified_studio.SageMakerNotebookOperator`
 to execute Jupyter notebooks, querybooks, and visual ETL jobs. This operator relies on the ``sagemaker_studio`` 
