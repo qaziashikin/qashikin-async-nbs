@@ -32,7 +32,7 @@ IN_PROGRESS_STATES = {"QUEUED", "STARTING", "RUNNING", "STOPPING"}
 FINISHED_STATES = {"SUCCEEDED", "STOPPED"}
 FAILURE_STATES = {"FAILED"}
 
-TWELVE_HOURS_IN_SECONDS = 12 * 60 * 60
+TWELVE_HOURS_IN_MINUTES = 12 * 60
 
 
 class SageMakerUnifiedStudioNotebookTrigger(BaseTrigger):
@@ -63,11 +63,10 @@ class SageMakerUnifiedStudioNotebookTrigger(BaseTrigger):
         self.project_id = project_id
         self.waiter_delay = waiter_delay
         self.timeout_configuration = timeout_configuration
-        run_timeout = (timeout_configuration or {}).get("run_timeout_in_minutes")
-        if run_timeout:
-            self.waiter_max_attempts = int(run_timeout * 60 / self.waiter_delay)
-        else:
-            self.waiter_max_attempts = int(TWELVE_HOURS_IN_SECONDS / self.waiter_delay)
+        run_timeout = (timeout_configuration or {}).get(
+            "run_timeout_in_minutes", TWELVE_HOURS_IN_MINUTES
+        )  # Default timeout is 12 hours
+        self.waiter_max_attempts = int(run_timeout * 60 / self.waiter_delay)
 
     def serialize(self) -> tuple[str, dict[str, Any]]:
         return (

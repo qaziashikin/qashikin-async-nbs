@@ -22,7 +22,7 @@ from unittest.mock import MagicMock
 import pytest
 
 from airflow.providers.amazon.aws.triggers.sagemaker_unified_studio_notebook import (
-    TWELVE_HOURS_IN_SECONDS,
+    TWELVE_HOURS_IN_MINUTES,
     SageMakerUnifiedStudioNotebookTrigger,
 )
 from airflow.triggers.base import TriggerEvent
@@ -62,7 +62,7 @@ class TestSageMakerUnifiedStudioNotebookTrigger:
 
     def test_default_timeout(self):
         trigger = self._create_trigger(waiter_delay=10)
-        assert trigger.waiter_max_attempts == int(TWELVE_HOURS_IN_SECONDS / 10)
+        assert trigger.waiter_max_attempts == int(TWELVE_HOURS_IN_MINUTES * 60 / 10)
 
     def test_custom_timeout_configuration(self):
         trigger = self._create_trigger(waiter_delay=10, timeout_configuration={"run_timeout_in_minutes": 60})
@@ -70,7 +70,7 @@ class TestSageMakerUnifiedStudioNotebookTrigger:
 
     def test_empty_timeout_configuration_falls_back_to_default(self):
         trigger = self._create_trigger(waiter_delay=10, timeout_configuration={})
-        assert trigger.waiter_max_attempts == int(TWELVE_HOURS_IN_SECONDS / 10)
+        assert trigger.waiter_max_attempts == int(TWELVE_HOURS_IN_MINUTES * 60 / 10)
 
     # --- run: success ---
 

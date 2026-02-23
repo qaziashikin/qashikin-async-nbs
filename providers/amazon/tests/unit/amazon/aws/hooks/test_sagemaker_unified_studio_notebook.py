@@ -21,7 +21,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from airflow.providers.amazon.aws.hooks.sagemaker_unified_studio_notebook import (
-    TWELVE_HOURS_IN_SECONDS,
+    TWELVE_HOURS_IN_MINUTES,
     SageMakerUnifiedStudioNotebookHook,
 )
 from airflow.providers.common.compat.sdk import AirflowException
@@ -53,7 +53,7 @@ class TestSageMakerUnifiedStudioNotebookHook:
     def test_default_timeout(self):
         """Default waiter_max_attempts derived from 12-hour timeout."""
         hook = SageMakerUnifiedStudioNotebookHook(domain_id=DOMAIN_ID, project_id=PROJECT_ID, waiter_delay=10)
-        assert hook.waiter_max_attempts == int(TWELVE_HOURS_IN_SECONDS / 10)
+        assert hook.waiter_max_attempts == int(TWELVE_HOURS_IN_MINUTES * 60 / 10)
 
     def test_custom_timeout_configuration(self):
         """waiter_max_attempts derived from timeout_configuration."""
@@ -73,7 +73,7 @@ class TestSageMakerUnifiedStudioNotebookHook:
             waiter_delay=10,
             timeout_configuration={},
         )
-        assert hook.waiter_max_attempts == int(TWELVE_HOURS_IN_SECONDS / 10)
+        assert hook.waiter_max_attempts == int(TWELVE_HOURS_IN_MINUTES * 60 / 10)
 
     # --- client property ---
 
