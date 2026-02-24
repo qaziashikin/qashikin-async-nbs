@@ -16,16 +16,14 @@
 # under the License.
 from __future__ import annotations
 
-from unittest import mock
-from unittest.mock import MagicMock
-
-import pytest
-
+from airflow.providers.amazon.aws.hooks.sagemaker_unified_studio_notebook import (
+    SageMakerUnifiedStudioNotebookHook,
+)
+from airflow.providers.amazon.aws.triggers.base import AwsBaseWaiterTrigger
 from airflow.providers.amazon.aws.triggers.sagemaker_unified_studio_notebook import (
     TWELVE_HOURS_IN_MINUTES,
     SageMakerUnifiedStudioNotebookTrigger,
 )
-from airflow.triggers.base import TriggerEvent
 
 DOMAIN_ID = "dzd_example"
 PROJECT_ID = "proj_example"
@@ -44,181 +42,60 @@ class TestSageMakerUnifiedStudioNotebookTrigger:
         defaults.update(kwargs)
         return SageMakerUnifiedStudioNotebookTrigger(**defaults)
 
+    def test_inherits_aws_base_waiter_trigger(self):
+        trigger = self._create_trigger()
+        assert isinstance(trigger, AwsBaseWaiterTrigger)
+
     # --- serialization ---
 
     def test_serialize(self):
         trigger = self._create_trigger(waiter_delay=10, timeout_configuration={"run_timeout_in_minutes": 60})
         classpath, kwargs = trigger.serialize()
         assert classpath == f"{MODULE_PATH}.SageMakerUnifiedStudioNotebookTrigger"
-        assert kwargs == {
-            "notebook_run_id": NOTEBOOK_RUN_ID,
-            "domain_id": DOMAIN_ID,
-            "project_id": PROJECT_ID,
-            "waiter_delay": 10,
-            "timeout_configuration": {"run_timeout_in_minutes": 60},
-        }
+        assert kwargs["notebook_run_id"] == NOTEBOOK_RUN_ID
+        assert kwargs["domain_id"] == DOMAIN_ID
+        assert kwargs["project_id"] == PROJECT_ID
+        assert kwargs["waiter_delay"] == 10
+        assert kwargs["timeout_configuration"] == {"run_timeout_in_minutes": 60}
+        assert kwargs["waiter_max_attempts"] == int(60 * 60 / 10)
 
     # --- timeout calculation ---
 
     def test_default_timeout(self):
         trigger = self._create_trigger(waiter_delay=10)
-        assert trigger.waiter_max_attempts == int(TWELVE_HOURS_IN_MINUTES * 60 / 10)
+        assert trigger.attempts == int(TWELVE_HOURS_IN_MINUTES * 60 / 10)
 
     def test_custom_timeout_configuration(self):
         trigger = self._create_trigger(waiter_delay=10, timeout_configuration={"run_timeout_in_minutes": 60})
-        assert trigger.waiter_max_attempts == int(60 * 60 / 10)
+        assert trigger.attempts == int(60 * 60 / 10)
 
     def test_empty_timeout_configuration_falls_back_to_default(self):
         trigger = self._create_trigger(waiter_delay=10, timeout_configuration={})
-        assert trigger.waiter_max_attempts == int(TWELVE_HOURS_IN_MINUTES * 60 / 10)
+        assert trigger.attempts == int(TWELVE_HOURS_IN_MINUTES * 60 / 10)
 
-    # --- run: success ---
+    # --- waiter configuration ---
 
-    @pytest.mark.asyncio
-    @mock.patch(f"{MODULE_PATH}.boto3.client")
-    @mock.patch(f"{MODULE_PATH}.asyncio.sleep", return_value=None)
-    async def test_run_succeeds_immediately(self, mock_sleep, mock_boto):
-        mock_client = MagicMock()
-        mock_client.get_notebook_run.return_value = {"status": "SUCCEEDED"}
-        mock_boto.return_value = mock_client
-
+    def test_waiter_name(self):
         trigger = self._create_trigger()
-        events = [event async for event in trigger.run()]
+        assert trigger.waiter_name == "notebook_run_complete"
 
-        assert len(events) == 1
-        assert events[0] == TriggerEvent({"status": "SUCCEEDED", "notebook_run_id": NOTEBOOK_RUN_ID})
-
-    @pytest.mark.asyncio
-    @mock.patch(f"{MODULE_PATH}.boto3.client")
-    @mock.patch(f"{MODULE_PATH}.asyncio.sleep", return_value=None)
-    async def test_run_stopped_is_stopped(self, mock_sleep, mock_boto):
-        mock_client = MagicMock()
-        mock_client.get_notebook_run.return_value = {"status": "STOPPED"}
-        mock_boto.return_value = mock_client
-
+    def test_waiter_args(self):
         trigger = self._create_trigger()
-        events = [event async for event in trigger.run()]
-
-        assert len(events) == 1
-        assert events[0].payload["status"] == "STOPPED"
-        assert NOTEBOOK_RUN_ID in events[0].payload["message"]
-
-    # --- run: polls then succeeds ---
-
-    @pytest.mark.asyncio
-    @mock.patch(f"{MODULE_PATH}.boto3.client")
-    @mock.patch(f"{MODULE_PATH}.asyncio.sleep", return_value=None)
-    async def test_run_polls_then_succeeds(self, mock_sleep, mock_boto):
-        mock_client = MagicMock()
-        mock_client.get_notebook_run.side_effect = [
-            {"status": "QUEUED"},
-            {"status": "STARTING"},
-            {"status": "RUNNING"},
-            {"status": "SUCCEEDED"},
-        ]
-        mock_boto.return_value = mock_client
-
-        trigger = self._create_trigger()
-        events = [event async for event in trigger.run()]
-
-        assert len(events) == 1
-        assert events[0].payload["status"] == "SUCCEEDED"
-
-    # --- run: failure ---
-
-    @pytest.mark.asyncio
-    @mock.patch(f"{MODULE_PATH}.boto3.client")
-    @mock.patch(f"{MODULE_PATH}.asyncio.sleep", return_value=None)
-    async def test_run_fails_with_error_message(self, mock_sleep, mock_boto):
-        mock_client = MagicMock()
-        mock_client.get_notebook_run.return_value = {
-            "status": "FAILED",
-            "errorMessage": "Notebook crashed",
+        assert trigger.waiter_args == {
+            "domain_id": DOMAIN_ID,
+            "notebook_run_id": NOTEBOOK_RUN_ID,
         }
-        mock_boto.return_value = mock_client
 
+    def test_return_value(self):
         trigger = self._create_trigger()
-        events = [event async for event in trigger.run()]
+        assert trigger.return_key == "notebook_run_id"
+        assert trigger.return_value == NOTEBOOK_RUN_ID
 
-        assert len(events) == 1
-        assert events[0].payload["status"] == "FAILED"
-        assert events[0].payload["message"] == "Notebook crashed"
+    # --- hook ---
 
-    @pytest.mark.asyncio
-    @mock.patch(f"{MODULE_PATH}.boto3.client")
-    @mock.patch(f"{MODULE_PATH}.asyncio.sleep", return_value=None)
-    async def test_run_fails_without_error_message(self, mock_sleep, mock_boto):
-        mock_client = MagicMock()
-        mock_client.get_notebook_run.return_value = {"status": "FAILED"}
-        mock_boto.return_value = mock_client
-
+    def test_hook_returns_notebook_hook(self):
         trigger = self._create_trigger()
-        events = [event async for event in trigger.run()]
-
-        assert len(events) == 1
-        assert events[0].payload["status"] == "FAILED"
-        assert NOTEBOOK_RUN_ID in events[0].payload["message"]
-
-    # --- run: unexpected state ---
-
-    @pytest.mark.asyncio
-    @mock.patch(f"{MODULE_PATH}.boto3.client")
-    @mock.patch(f"{MODULE_PATH}.asyncio.sleep", return_value=None)
-    async def test_run_unexpected_state(self, mock_sleep, mock_boto):
-        mock_client = MagicMock()
-        mock_client.get_notebook_run.return_value = {"status": "UNKNOWN_STATE"}
-        mock_boto.return_value = mock_client
-
-        trigger = self._create_trigger()
-        events = [event async for event in trigger.run()]
-
-        assert len(events) == 1
-        assert events[0].payload["status"] == "ERROR"
-        assert "unexpected state" in events[0].payload["message"]
-
-    # --- run: timeout ---
-
-    @pytest.mark.asyncio
-    @mock.patch(f"{MODULE_PATH}.boto3.client")
-    @mock.patch(f"{MODULE_PATH}.asyncio.sleep", return_value=None)
-    async def test_run_times_out(self, mock_sleep, mock_boto):
-        mock_client = MagicMock()
-        mock_client.get_notebook_run.return_value = {"status": "RUNNING"}
-        mock_boto.return_value = mock_client
-
-        trigger = self._create_trigger(waiter_delay=1, timeout_configuration={"run_timeout_in_minutes": 1})
-        events = [event async for event in trigger.run()]
-
-        assert len(events) == 1
-        assert events[0].payload["status"] == "ERROR"
-        assert "timed out" in events[0].payload["message"]
-
-    # --- run: API not available ---
-
-    @pytest.mark.asyncio
-    @mock.patch(f"{MODULE_PATH}.boto3.client")
-    async def test_run_api_not_available(self, mock_boto):
-        mock_client = MagicMock(spec=[])  # no attributes
-        mock_boto.return_value = mock_client
-
-        trigger = self._create_trigger()
-        events = [event async for event in trigger.run()]
-
-        assert len(events) == 1
-        assert events[0].payload["status"] == "ERROR"
-        assert "not available" in events[0].payload["message"]
-
-    # --- run: client is closed in finally ---
-
-    @pytest.mark.asyncio
-    @mock.patch(f"{MODULE_PATH}.boto3.client")
-    @mock.patch(f"{MODULE_PATH}.asyncio.sleep", return_value=None)
-    async def test_run_closes_client(self, mock_sleep, mock_boto):
-        mock_client = MagicMock()
-        mock_client.get_notebook_run.return_value = {"status": "SUCCEEDED"}
-        mock_boto.return_value = mock_client
-
-        trigger = self._create_trigger()
-        _ = [event async for event in trigger.run()]
-
-        mock_client.close.assert_called_once()
+        hook = trigger.hook()
+        assert isinstance(hook, SageMakerUnifiedStudioNotebookHook)
+        assert hook.domain_id == DOMAIN_ID
+        assert hook.project_id == PROJECT_ID

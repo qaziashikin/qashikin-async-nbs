@@ -19,28 +19,32 @@
 
 from __future__ import annotations
 
-import asyncio
-from collections.abc import AsyncIterator
-from functools import partial
-from typing import Any
+from typing import TYPE_CHECKING
 
-import boto3
+from airflow.providers.amazon.aws.hooks.sagemaker_unified_studio_notebook import (
+    SageMakerUnifiedStudioNotebookHook,
+)
+from airflow.providers.amazon.aws.triggers.base import AwsBaseWaiterTrigger
 
-from airflow.triggers.base import BaseTrigger, TriggerEvent
-
-IN_PROGRESS_STATES = {"QUEUED", "STARTING", "RUNNING", "STOPPING"}
+if TYPE_CHECKING:
+    from airflow.providers.amazon.aws.hooks.base_aws import AwsGenericHook
 
 TWELVE_HOURS_IN_MINUTES = 12 * 60
 
 
-class SageMakerUnifiedStudioNotebookTrigger(BaseTrigger):
+class SageMakerUnifiedStudioNotebookTrigger(AwsBaseWaiterTrigger):
     """
     Watches an asynchronous notebook run, triggering when it reaches a terminal state.
+
+    Uses a custom boto waiter (``notebook_run_complete``) defined in
+    ``waiters/datazone.json`` to poll the DataZone ``GetNotebookRun`` API.
 
     :param notebook_run_id: The ID of the notebook run to monitor.
     :param domain_id: The ID of the DataZone domain.
     :param project_id: The ID of the DataZone project.
     :param waiter_delay: Interval in seconds between polls (default: 10).
+    :param waiter_max_attempts: Maximum number of poll attempts.
+    :param aws_conn_id: The Airflow connection used for AWS credentials.
     :param timeout_configuration: Optional timeout settings. When provided, the maximum
         number of poll attempts is derived from ``run_timeout_in_minutes * 60 / waiter_delay``.
         Defaults to a 12-hour timeout when omitted.
@@ -54,105 +58,46 @@ class SageMakerUnifiedStudioNotebookTrigger(BaseTrigger):
         project_id: str,
         waiter_delay: int = 10,
         timeout_configuration: dict | None = None,
+        aws_conn_id: str | None = None,
+        **kwargs,
     ):
-        super().__init__()
+        run_timeout = (timeout_configuration or {}).get("run_timeout_in_minutes", TWELVE_HOURS_IN_MINUTES)
+        waiter_max_attempts = int(run_timeout * 60 / waiter_delay)
+
         self.notebook_run_id = notebook_run_id
         self.domain_id = domain_id
         self.project_id = project_id
-        self.waiter_delay = waiter_delay
         self.timeout_configuration = timeout_configuration
-        run_timeout = (timeout_configuration or {}).get(
-            "run_timeout_in_minutes", TWELVE_HOURS_IN_MINUTES
-        )  # Default timeout is 12 hours
-        self.waiter_max_attempts = int(run_timeout * 60 / self.waiter_delay)
 
-    def serialize(self) -> tuple[str, dict[str, Any]]:
-        return (
-            self.__class__.__module__ + "." + self.__class__.__qualname__,
-            {
-                "notebook_run_id": self.notebook_run_id,
-                "domain_id": self.domain_id,
-                "project_id": self.project_id,
-                "waiter_delay": self.waiter_delay,
-                "timeout_configuration": self.timeout_configuration,
+        super().__init__(
+            serialized_fields={
+                "notebook_run_id": notebook_run_id,
+                "domain_id": domain_id,
+                "project_id": project_id,
+                "timeout_configuration": timeout_configuration,
             },
+            waiter_name="notebook_run_complete",
+            waiter_args={
+                "domain_id": domain_id,
+                "notebook_run_id": notebook_run_id,
+            },
+            failure_message=f"Notebook run {notebook_run_id} failed",
+            status_message=f"Notebook run {notebook_run_id} is currently",
+            status_queries=["status"],
+            return_key="notebook_run_id",
+            return_value=notebook_run_id,
+            waiter_delay=waiter_delay,
+            waiter_max_attempts=waiter_max_attempts,
+            aws_conn_id=aws_conn_id,
+            **kwargs,
         )
 
-    async def run(self) -> AsyncIterator[TriggerEvent]:
-        client = boto3.client("datazone")
-        if not hasattr(client, "get_notebook_run"):
-            yield TriggerEvent(
-                {
-                    "status": "ERROR",
-                    "notebook_run_id": self.notebook_run_id,
-                    "message": "The 'get_notebook_run' API is not available in the installed "
-                    "boto3/botocore version. Please upgrade boto3/botocore to a version "
-                    "that supports the DataZone NotebookRun APIs.",
-                }
-            )
-            return
-        try:
-            for _ in range(self.waiter_max_attempts):
-                loop = asyncio.get_running_loop()
-                response = await loop.run_in_executor(
-                    None,
-                    partial(
-                        client.get_notebook_run,
-                        domain_id=self.domain_id,
-                        notebook_run_id=self.notebook_run_id,
-                    ),
-                )
-                status = response.get("status", "")
-                error_message = response.get("errorMessage", "")
-
-                if status == "SUCCEEDED":
-                    yield TriggerEvent({"status": "SUCCEEDED", "notebook_run_id": self.notebook_run_id})
-                    return
-
-                if status == "STOPPED":
-                    yield TriggerEvent(
-                        {
-                            "status": "STOPPED",
-                            "notebook_run_id": self.notebook_run_id,
-                            "message": f"Notebook run {self.notebook_run_id} was stopped",
-                        }
-                    )
-                    return
-
-                if status == "FAILED":
-                    yield TriggerEvent(
-                        {
-                            "status": "FAILED",
-                            "notebook_run_id": self.notebook_run_id,
-                            "message": error_message or f"Notebook run {self.notebook_run_id} failed",
-                        }
-                    )
-                    return
-
-                if status not in IN_PROGRESS_STATES:
-                    yield TriggerEvent(
-                        {
-                            "status": "ERROR",
-                            "notebook_run_id": self.notebook_run_id,
-                            "message": f"Notebook run {self.notebook_run_id} reached unexpected state: {status}",
-                        }
-                    )
-                    return
-
-                self.log.info(
-                    "Notebook run %s is %s, checking again in %ss",
-                    self.notebook_run_id,
-                    status,
-                    self.waiter_delay,
-                )
-                await asyncio.sleep(self.waiter_delay)
-
-            yield TriggerEvent(
-                {
-                    "status": "ERROR",
-                    "notebook_run_id": self.notebook_run_id,
-                    "message": f"Notebook run {self.notebook_run_id} timed out after {self.waiter_max_attempts} attempts",
-                }
-            )
-        finally:
-            client.close()
+    def hook(self) -> AwsGenericHook:
+        return SageMakerUnifiedStudioNotebookHook(
+            domain_id=self.domain_id,
+            project_id=self.project_id,
+            aws_conn_id=self.aws_conn_id,
+            region_name=self.region_name,
+            verify=self.verify,
+            config=self.botocore_config,
+        )
