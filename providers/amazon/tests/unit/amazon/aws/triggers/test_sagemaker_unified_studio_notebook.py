@@ -86,14 +86,12 @@ class TestSageMakerUnifiedStudioNotebookTrigger:
         events = [event async for event in trigger.run()]
 
         assert len(events) == 1
-        assert events[0] == TriggerEvent(
-            {"status": "SUCCEEDED", "notebook_run_id": NOTEBOOK_RUN_ID, "state": "SUCCEEDED"}
-        )
+        assert events[0] == TriggerEvent({"status": "SUCCEEDED", "notebook_run_id": NOTEBOOK_RUN_ID})
 
     @pytest.mark.asyncio
     @mock.patch(f"{MODULE_PATH}.boto3.client")
     @mock.patch(f"{MODULE_PATH}.asyncio.sleep", return_value=None)
-    async def test_run_stopped_is_success(self, mock_sleep, mock_boto):
+    async def test_run_stopped_is_stopped(self, mock_sleep, mock_boto):
         mock_client = MagicMock()
         mock_client.get_notebook_run.return_value = {"status": "STOPPED"}
         mock_boto.return_value = mock_client
@@ -102,9 +100,8 @@ class TestSageMakerUnifiedStudioNotebookTrigger:
         events = [event async for event in trigger.run()]
 
         assert len(events) == 1
-        assert events[0] == TriggerEvent(
-            {"status": "SUCCEEDED", "notebook_run_id": NOTEBOOK_RUN_ID, "state": "STOPPED"}
-        )
+        assert events[0].payload["status"] == "STOPPED"
+        assert NOTEBOOK_RUN_ID in events[0].payload["message"]
 
     # --- run: polls then succeeds ---
 

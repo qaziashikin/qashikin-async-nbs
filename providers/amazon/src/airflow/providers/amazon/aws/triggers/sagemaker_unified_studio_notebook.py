@@ -29,8 +29,6 @@ import boto3
 from airflow.triggers.base import BaseTrigger, TriggerEvent
 
 IN_PROGRESS_STATES = {"QUEUED", "STARTING", "RUNNING", "STOPPING"}
-FINISHED_STATES = {"SUCCEEDED", "STOPPED"}
-FAILURE_STATES = {"FAILED"}
 
 TWELVE_HOURS_IN_MINUTES = 12 * 60
 
@@ -107,13 +105,21 @@ class SageMakerUnifiedStudioNotebookTrigger(BaseTrigger):
                 status = response.get("status", "")
                 error_message = response.get("errorMessage", "")
 
-                if status in FINISHED_STATES:
+                if status == "SUCCEEDED":
+                    yield TriggerEvent({"status": "SUCCEEDED", "notebook_run_id": self.notebook_run_id})
+                    return
+
+                if status == "STOPPED":
                     yield TriggerEvent(
-                        {"status": "SUCCEEDED", "notebook_run_id": self.notebook_run_id, "state": status}
+                        {
+                            "status": "STOPPED",
+                            "notebook_run_id": self.notebook_run_id,
+                            "message": f"Notebook run {self.notebook_run_id} was stopped",
+                        }
                     )
                     return
 
-                if status in FAILURE_STATES:
+                if status == "FAILED":
                     yield TriggerEvent(
                         {
                             "status": "FAILED",
