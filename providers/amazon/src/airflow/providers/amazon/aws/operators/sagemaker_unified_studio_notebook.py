@@ -24,7 +24,6 @@ Studio.
 
 from __future__ import annotations
 
-from functools import cached_property
 from typing import TYPE_CHECKING, Any
 
 from airflow.providers.amazon.aws.hooks.sagemaker_unified_studio_notebook import (
@@ -33,17 +32,18 @@ from airflow.providers.amazon.aws.hooks.sagemaker_unified_studio_notebook import
 from airflow.providers.amazon.aws.links.sagemaker_unified_studio import (
     SageMakerUnifiedStudioLink,
 )
+from airflow.providers.amazon.aws.operators.base_aws import AwsBaseOperator
 from airflow.providers.amazon.aws.triggers.sagemaker_unified_studio_notebook import (
     SageMakerUnifiedStudioNotebookTrigger,
 )
 from airflow.providers.amazon.aws.utils import validate_execute_complete_event
-from airflow.providers.common.compat.sdk import BaseOperator, conf
+from airflow.providers.common.compat.sdk import conf
 
 if TYPE_CHECKING:
     from airflow.sdk import Context
 
 
-class SageMakerUnifiedStudioNotebookOperator(BaseOperator):
+class SageMakerUnifiedStudioNotebookOperator(AwsBaseOperator[SageMakerUnifiedStudioNotebookHook]):
     """
     Execute a notebook in SageMaker Unified Studio.
 
@@ -91,6 +91,7 @@ class SageMakerUnifiedStudioNotebookOperator(BaseOperator):
     """
 
     operator_extra_links = (SageMakerUnifiedStudioLink(),)
+    aws_hook_class = SageMakerUnifiedStudioNotebookHook
 
     def __init__(
         self,
@@ -119,14 +120,15 @@ class SageMakerUnifiedStudioNotebookOperator(BaseOperator):
         self.waiter_delay = waiter_delay
         self.deferrable = deferrable
 
-    @cached_property
-    def hook(self) -> SageMakerUnifiedStudioNotebookHook:
-        return SageMakerUnifiedStudioNotebookHook(
-            domain_id=self.domain_id,
-            project_id=self.project_id,
-            waiter_delay=self.waiter_delay,
-            timeout_configuration=self.timeout_configuration,
-        )
+    @property
+    def _hook_parameters(self):
+        return {
+            **super()._hook_parameters,
+            "domain_id": self.domain_id,
+            "project_id": self.project_id,
+            "waiter_delay": self.waiter_delay,
+            "timeout_configuration": self.timeout_configuration,
+        }
 
     def execute(self, context: Context):
         workflow_name = context["dag"].dag_id  # Workflow name is the same as the dag_id
@@ -160,7 +162,7 @@ class SageMakerUnifiedStudioNotebookOperator(BaseOperator):
     def execute_complete(self, context: Context, event: dict[str, Any] | None = None) -> str:
         validated_event = validate_execute_complete_event(event)
 
-        if validated_event.get("status") != "SUCCEEDED":
+        if validated_event.get("status") != "success":
             raise RuntimeError(f"Notebook run did not succeed: {validated_event}")
 
         notebook_run_id = validated_event["notebook_run_id"]

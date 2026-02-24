@@ -24,19 +24,18 @@ reaches a terminal state.
 
 from __future__ import annotations
 
-from functools import cached_property
 from typing import TYPE_CHECKING
 
 from airflow.providers.amazon.aws.hooks.sagemaker_unified_studio_notebook import (
     SageMakerUnifiedStudioNotebookHook,
 )
-from airflow.providers.common.compat.sdk import BaseSensorOperator
+from airflow.providers.amazon.aws.sensors.base_aws import AwsBaseSensor
 
 if TYPE_CHECKING:
     from airflow.sdk import Context
 
 
-class SageMakerUnifiedStudioNotebookSensor(BaseSensorOperator):
+class SageMakerUnifiedStudioNotebookSensor(AwsBaseSensor[SageMakerUnifiedStudioNotebookHook]):
     """
     Polls a SageMakerUnifiedStudio Workflow asynchronous Notebook execution until it reaches a terminal state.
 
@@ -62,6 +61,8 @@ class SageMakerUnifiedStudioNotebookSensor(BaseSensorOperator):
         This is returned by the ``SageMakerUnifiedStudioNotebookOperator``.
     """
 
+    aws_hook_class = SageMakerUnifiedStudioNotebookHook
+
     def __init__(
         self,
         *,
@@ -77,12 +78,13 @@ class SageMakerUnifiedStudioNotebookSensor(BaseSensorOperator):
         self.success_states = ["SUCCEEDED"]
         self.in_progress_states = ["QUEUED", "STARTING", "RUNNING", "STOPPING"]
 
-    @cached_property
-    def hook(self) -> SageMakerUnifiedStudioNotebookHook:
-        return SageMakerUnifiedStudioNotebookHook(
-            domain_id=self.domain_id,
-            project_id=self.project_id,
-        )
+    @property
+    def _hook_parameters(self):
+        return {
+            **super()._hook_parameters,
+            "domain_id": self.domain_id,
+            "project_id": self.project_id,
+        }
 
     # override from base sensor
     def poke(self, context: Context) -> bool:

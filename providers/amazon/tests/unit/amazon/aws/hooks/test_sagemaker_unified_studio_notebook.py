@@ -16,7 +16,7 @@
 # under the License.
 from __future__ import annotations
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, PropertyMock, patch
 
 import pytest
 
@@ -30,28 +30,30 @@ PROJECT_ID = "proj_example"
 NOTEBOOK_ID = "notebook_123"
 NOTEBOOK_RUN_ID = "run_456"
 
+HOOK_MODULE = "airflow.providers.amazon.aws.hooks.sagemaker_unified_studio_notebook"
+
 
 class TestSageMakerUnifiedStudioNotebookHook:
     @pytest.fixture(autouse=True)
     def setup(self):
-        with patch(
-            "airflow.providers.amazon.aws.hooks.sagemaker_unified_studio_notebook.boto3.client"
-        ) as mock_boto:
-            self.mock_client = MagicMock()
-            mock_boto.return_value = self.mock_client
+        self.mock_client = MagicMock()
+        with patch.object(SageMakerUnifiedStudioNotebookHook, "conn", new_callable=PropertyMock) as mock_conn:
+            mock_conn.return_value = self.mock_client
             self.hook = SageMakerUnifiedStudioNotebookHook(
                 domain_id=DOMAIN_ID,
                 project_id=PROJECT_ID,
                 waiter_delay=5,
+                aws_conn_id=None,
             )
-            _ = self.hook.client
             yield
 
     # --- __init__ tests ---
 
     def test_default_timeout(self):
         """Default waiter_max_attempts derived from 12-hour timeout."""
-        hook = SageMakerUnifiedStudioNotebookHook(domain_id=DOMAIN_ID, project_id=PROJECT_ID, waiter_delay=10)
+        hook = SageMakerUnifiedStudioNotebookHook(
+            domain_id=DOMAIN_ID, project_id=PROJECT_ID, waiter_delay=10, aws_conn_id=None
+        )
         assert hook.waiter_max_attempts == int(TWELVE_HOURS_IN_MINUTES * 60 / 10)
 
     def test_custom_timeout_configuration(self):
@@ -61,6 +63,7 @@ class TestSageMakerUnifiedStudioNotebookHook:
             project_id=PROJECT_ID,
             waiter_delay=10,
             timeout_configuration={"run_timeout_in_minutes": 60},
+            aws_conn_id=None,
         )
         assert hook.waiter_max_attempts == int(60 * 60 / 10)
 
@@ -71,26 +74,16 @@ class TestSageMakerUnifiedStudioNotebookHook:
             project_id=PROJECT_ID,
             waiter_delay=10,
             timeout_configuration={},
+            aws_conn_id=None,
         )
         assert hook.waiter_max_attempts == int(TWELVE_HOURS_IN_MINUTES * 60 / 10)
 
-    # --- client property ---
+    def test_inherits_aws_base_hook(self):
+        """Hook extends AwsBaseHook with client_type='datazone'."""
+        from airflow.providers.amazon.aws.hooks.base_aws import AwsBaseHook
 
-    def test_client_lazy_initialization(self):
-        """Client is created lazily on first access."""
-        with patch(
-            "airflow.providers.amazon.aws.hooks.sagemaker_unified_studio_notebook.boto3.client"
-        ) as mock_boto:
-            mock_boto.return_value = MagicMock()
-            hook = SageMakerUnifiedStudioNotebookHook(domain_id=DOMAIN_ID, project_id=PROJECT_ID)
-            assert hook._client is None
-            client = hook.client
-            mock_boto.assert_called_once_with("datazone")
-            assert client is not None
-            # Second access should reuse the same client
-            client2 = hook.client
-            assert client2 is client
-            mock_boto.assert_called_once()
+        assert isinstance(self.hook, AwsBaseHook)
+        assert self.hook.client_type == "datazone"
 
     # --- start_notebook_run ---
 
@@ -195,7 +188,7 @@ class TestSageMakerUnifiedStudioNotebookHook:
 
     # --- wait_for_notebook_run ---
 
-    @patch("airflow.providers.amazon.aws.hooks.sagemaker_unified_studio_notebook.time.sleep")
+    @patch(f"{HOOK_MODULE}.time.sleep")
     def test_wait_for_notebook_run_immediate_success(self, mock_sleep):
         """Run completes on first poll."""
         self.mock_client.get_notebook_run.return_value = {"status": "SUCCEEDED"}
@@ -205,7 +198,7 @@ class TestSageMakerUnifiedStudioNotebookHook:
         assert result == {"State": "SUCCEEDED", "NotebookRunId": NOTEBOOK_RUN_ID}
         mock_sleep.assert_called_once_with(5)
 
-    @patch("airflow.providers.amazon.aws.hooks.sagemaker_unified_studio_notebook.time.sleep")
+    @patch(f"{HOOK_MODULE}.time.sleep")
     def test_wait_for_notebook_run_polls_then_succeeds(self, mock_sleep):
         """Run is in progress for a few polls then completes."""
         self.mock_client.get_notebook_run.side_effect = [
@@ -220,7 +213,7 @@ class TestSageMakerUnifiedStudioNotebookHook:
         assert result == {"State": "SUCCEEDED", "NotebookRunId": NOTEBOOK_RUN_ID}
         assert mock_sleep.call_count == 4
 
-    @patch("airflow.providers.amazon.aws.hooks.sagemaker_unified_studio_notebook.time.sleep")
+    @patch(f"{HOOK_MODULE}.time.sleep")
     def test_wait_for_notebook_run_fails(self, mock_sleep):
         """Run fails with an error message."""
         self.mock_client.get_notebook_run.return_value = {
@@ -231,16 +224,18 @@ class TestSageMakerUnifiedStudioNotebookHook:
         with pytest.raises(RuntimeError, match="Notebook crashed"):
             self.hook.wait_for_notebook_run(NOTEBOOK_RUN_ID)
 
-    @patch("airflow.providers.amazon.aws.hooks.sagemaker_unified_studio_notebook.time.sleep")
+    @patch(f"{HOOK_MODULE}.time.sleep")
     def test_wait_for_notebook_run_timeout(self, mock_sleep):
         """Run times out after max attempts."""
-        hook = SageMakerUnifiedStudioNotebookHook(
-            domain_id=DOMAIN_ID,
-            project_id=PROJECT_ID,
-            waiter_delay=5,
-            timeout_configuration={"run_timeout_in_minutes": 1},
-        )
-        hook._client = self.mock_client
+        with patch.object(SageMakerUnifiedStudioNotebookHook, "conn", new_callable=PropertyMock) as mock_conn:
+            mock_conn.return_value = self.mock_client
+            hook = SageMakerUnifiedStudioNotebookHook(
+                domain_id=DOMAIN_ID,
+                project_id=PROJECT_ID,
+                waiter_delay=5,
+                timeout_configuration={"run_timeout_in_minutes": 1},
+                aws_conn_id=None,
+            )
         self.mock_client.get_notebook_run.return_value = {"status": "RUNNING"}
 
         with pytest.raises(RuntimeError, match="Execution timed out"):
@@ -252,35 +247,27 @@ class TestSageMakerUnifiedStudioNotebookHook:
 
     def test_validate_api_availability_missing_start_notebook_run(self):
         """Raises RuntimeError when start_notebook_run is not available on the client."""
-        with patch(
-            "airflow.providers.amazon.aws.hooks.sagemaker_unified_studio_notebook.boto3.client"
-        ) as mock_boto:
-            mock_client = MagicMock(spec=[])  # no APIs available
-            mock_boto.return_value = mock_client
-            hook = SageMakerUnifiedStudioNotebookHook(domain_id=DOMAIN_ID, project_id=PROJECT_ID)
+        mock_client = MagicMock(spec=[])  # no APIs available
+        with patch.object(SageMakerUnifiedStudioNotebookHook, "conn", new_callable=PropertyMock) as mock_conn:
+            mock_conn.return_value = mock_client
+            hook = SageMakerUnifiedStudioNotebookHook(
+                domain_id=DOMAIN_ID, project_id=PROJECT_ID, aws_conn_id=None
+            )
             with pytest.raises(RuntimeError, match="start_notebook_run.*not available"):
-                hook.client
+                hook._validate_api_availability()
 
     def test_validate_api_availability_missing_get_notebook_run(self):
         """Raises RuntimeError when get_notebook_run is not available on the client."""
-        with patch(
-            "airflow.providers.amazon.aws.hooks.sagemaker_unified_studio_notebook.boto3.client"
-        ) as mock_boto:
-            # Client has start_notebook_run API but not get_notebook_run API
-            mock_client = MagicMock(spec=["start_notebook_run"])
-            mock_boto.return_value = mock_client
-            hook = SageMakerUnifiedStudioNotebookHook(domain_id=DOMAIN_ID, project_id=PROJECT_ID)
+        mock_client = MagicMock(spec=["start_notebook_run"])
+        with patch.object(SageMakerUnifiedStudioNotebookHook, "conn", new_callable=PropertyMock) as mock_conn:
+            mock_conn.return_value = mock_client
+            hook = SageMakerUnifiedStudioNotebookHook(
+                domain_id=DOMAIN_ID, project_id=PROJECT_ID, aws_conn_id=None
+            )
             with pytest.raises(RuntimeError, match="get_notebook_run.*not available"):
-                hook.client
+                hook._validate_api_availability()
 
     def test_validate_api_availability_passes_when_apis_present(self):
         """No exception when both required APIs are present on the client."""
-        with patch(
-            "airflow.providers.amazon.aws.hooks.sagemaker_unified_studio_notebook.boto3.client"
-        ) as mock_boto:
-            mock_client = MagicMock()  # MagicMock has all attributes by default
-            mock_boto.return_value = mock_client
-            hook = SageMakerUnifiedStudioNotebookHook(domain_id=DOMAIN_ID, project_id=PROJECT_ID)
-            # Should not raise
-            client = hook.client
-            assert client is mock_client
+        # self.mock_client is a MagicMock which has all attributes by default
+        self.hook._validate_api_availability()  # Should not raise

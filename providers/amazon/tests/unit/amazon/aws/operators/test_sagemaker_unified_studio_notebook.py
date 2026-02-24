@@ -16,7 +16,7 @@
 # under the License.
 from __future__ import annotations
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, PropertyMock, patch
 
 import pytest
 
@@ -37,7 +37,7 @@ NOTEBOOK_RUN_ID = "run_abc123"
 
 HOOK_PATH = (
     "airflow.providers.amazon.aws.operators.sagemaker_unified_studio_notebook"
-    ".SageMakerUnifiedStudioNotebookHook"
+    ".SageMakerUnifiedStudioNotebookOperator.hook"
 )
 
 
@@ -91,8 +91,7 @@ class TestSageMakerUnifiedStudioNotebookOperator:
 
     # --- hook property ---
 
-    @patch(HOOK_PATH)
-    def test_hook_property(self, mock_hook_cls):
+    def test_hook_property(self):
         op = SageMakerUnifiedStudioNotebookOperator(
             task_id=TASK_ID,
             notebook_id=NOTEBOOK_ID,
@@ -100,21 +99,24 @@ class TestSageMakerUnifiedStudioNotebookOperator:
             project_id=PROJECT_ID,
             waiter_delay=15,
             timeout_configuration={"run_timeout_in_minutes": 120},
+            aws_conn_id=None,
         )
-        hook = op.hook
-        mock_hook_cls.assert_called_once_with(
-            domain_id=DOMAIN_ID,
-            project_id=PROJECT_ID,
-            waiter_delay=15,
-            timeout_configuration={"run_timeout_in_minutes": 120},
+        from airflow.providers.amazon.aws.hooks.sagemaker_unified_studio_notebook import (
+            SageMakerUnifiedStudioNotebookHook,
         )
-        assert hook is mock_hook_cls.return_value
+
+        assert isinstance(op.hook, SageMakerUnifiedStudioNotebookHook)
+        assert op.hook.domain_id == DOMAIN_ID
+        assert op.hook.project_id == PROJECT_ID
+        assert op.hook.waiter_delay == 15
+        assert op.hook.timeout_configuration == {"run_timeout_in_minutes": 120}
 
     # --- execute success ---
 
-    @patch(HOOK_PATH)
-    def test_execute_success(self, mock_hook_cls):
-        mock_hook = mock_hook_cls.return_value
+    @patch(HOOK_PATH, new_callable=PropertyMock)
+    def test_execute_success(self, mock_hook_prop):
+        mock_hook = MagicMock()
+        mock_hook_prop.return_value = mock_hook
         mock_hook.start_notebook_run.return_value = {"notebook_run_id": NOTEBOOK_RUN_ID}
         mock_hook.wait_for_notebook_run.return_value = {
             "State": "SUCCEEDED",
@@ -145,9 +147,10 @@ class TestSageMakerUnifiedStudioNotebookOperator:
         )
         mock_hook.wait_for_notebook_run.assert_called_once_with(NOTEBOOK_RUN_ID)
 
-    @patch(HOOK_PATH)
-    def test_execute_passes_dag_id_as_workflow_name(self, mock_hook_cls):
-        mock_hook = mock_hook_cls.return_value
+    @patch(HOOK_PATH, new_callable=PropertyMock)
+    def test_execute_passes_dag_id_as_workflow_name(self, mock_hook_prop):
+        mock_hook = MagicMock()
+        mock_hook_prop.return_value = mock_hook
         mock_hook.start_notebook_run.return_value = {"notebook_run_id": NOTEBOOK_RUN_ID}
         mock_hook.wait_for_notebook_run.return_value = {}
 
@@ -164,9 +167,10 @@ class TestSageMakerUnifiedStudioNotebookOperator:
 
     # --- execute propagates hook failures ---
 
-    @patch(HOOK_PATH)
-    def test_execute_propagates_start_failure(self, mock_hook_cls):
-        mock_hook = mock_hook_cls.return_value
+    @patch(HOOK_PATH, new_callable=PropertyMock)
+    def test_execute_propagates_start_failure(self, mock_hook_prop):
+        mock_hook = MagicMock()
+        mock_hook_prop.return_value = mock_hook
         mock_hook.start_notebook_run.side_effect = RuntimeError("API unavailable")
 
         op = SageMakerUnifiedStudioNotebookOperator(
@@ -178,9 +182,10 @@ class TestSageMakerUnifiedStudioNotebookOperator:
         with pytest.raises(RuntimeError, match="API unavailable"):
             op.execute(_make_context())
 
-    @patch(HOOK_PATH)
-    def test_execute_propagates_wait_failure(self, mock_hook_cls):
-        mock_hook = mock_hook_cls.return_value
+    @patch(HOOK_PATH, new_callable=PropertyMock)
+    def test_execute_propagates_wait_failure(self, mock_hook_prop):
+        mock_hook = MagicMock()
+        mock_hook_prop.return_value = mock_hook
         mock_hook.start_notebook_run.return_value = {"notebook_run_id": NOTEBOOK_RUN_ID}
         mock_hook.wait_for_notebook_run.side_effect = RuntimeError("Notebook crashed")
 
@@ -195,10 +200,11 @@ class TestSageMakerUnifiedStudioNotebookOperator:
 
     # --- execute with minimal params (no optionals) ---
 
-    @patch(HOOK_PATH)
-    def test_execute_minimal_params(self, mock_hook_cls):
+    @patch(HOOK_PATH, new_callable=PropertyMock)
+    def test_execute_minimal_params(self, mock_hook_prop):
         """Execute with only required params passes None for all optionals."""
-        mock_hook = mock_hook_cls.return_value
+        mock_hook = MagicMock()
+        mock_hook_prop.return_value = mock_hook
         mock_hook.start_notebook_run.return_value = {"notebook_run_id": NOTEBOOK_RUN_ID}
         mock_hook.wait_for_notebook_run.return_value = {}
 
@@ -219,10 +225,11 @@ class TestSageMakerUnifiedStudioNotebookOperator:
 
     # --- wait_for_completion=False ---
 
-    @patch(HOOK_PATH)
-    def test_execute_no_wait(self, mock_hook_cls):
+    @patch(HOOK_PATH, new_callable=PropertyMock)
+    def test_execute_no_wait(self, mock_hook_prop):
         """When wait_for_completion=False, execute returns immediately without polling."""
-        mock_hook = mock_hook_cls.return_value
+        mock_hook = MagicMock()
+        mock_hook_prop.return_value = mock_hook
         mock_hook.start_notebook_run.return_value = {"notebook_run_id": NOTEBOOK_RUN_ID}
 
         op = SageMakerUnifiedStudioNotebookOperator(
@@ -240,10 +247,11 @@ class TestSageMakerUnifiedStudioNotebookOperator:
 
     # --- deferrable mode ---
 
-    @patch(HOOK_PATH)
-    def test_execute_deferrable(self, mock_hook_cls):
+    @patch(HOOK_PATH, new_callable=PropertyMock)
+    def test_execute_deferrable(self, mock_hook_prop):
         """When deferrable=True, execute defers to the trigger instead of polling."""
-        mock_hook = mock_hook_cls.return_value
+        mock_hook = MagicMock()
+        mock_hook_prop.return_value = mock_hook
         mock_hook.start_notebook_run.return_value = {"notebook_run_id": NOTEBOOK_RUN_ID}
 
         op = SageMakerUnifiedStudioNotebookOperator(
@@ -269,10 +277,11 @@ class TestSageMakerUnifiedStudioNotebookOperator:
         assert exc_info.value.method_name == "execute_complete"
         mock_hook.wait_for_notebook_run.assert_not_called()
 
-    @patch(HOOK_PATH)
-    def test_execute_deferrable_overrides_wait_for_completion(self, mock_hook_cls):
+    @patch(HOOK_PATH, new_callable=PropertyMock)
+    def test_execute_deferrable_overrides_wait_for_completion(self, mock_hook_prop):
         """Deferrable takes precedence over wait_for_completion=False."""
-        mock_hook = mock_hook_cls.return_value
+        mock_hook = MagicMock()
+        mock_hook_prop.return_value = mock_hook
         mock_hook.start_notebook_run.return_value = {"notebook_run_id": NOTEBOOK_RUN_ID}
 
         op = SageMakerUnifiedStudioNotebookOperator(
@@ -298,7 +307,7 @@ class TestSageMakerUnifiedStudioNotebookOperator:
             domain_id=DOMAIN_ID,
             project_id=PROJECT_ID,
         )
-        event = {"status": "SUCCEEDED", "notebook_run_id": NOTEBOOK_RUN_ID}
+        event = {"status": "success", "notebook_run_id": NOTEBOOK_RUN_ID}
         result = op.execute_complete(context=_make_context(), event=event)
         assert result == NOTEBOOK_RUN_ID
 

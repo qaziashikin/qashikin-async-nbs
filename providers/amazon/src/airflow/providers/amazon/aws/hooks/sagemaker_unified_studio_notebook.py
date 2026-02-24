@@ -21,15 +21,14 @@ from __future__ import annotations
 
 import time
 import uuid
+from typing import Any
 
-import boto3
-
-from airflow.providers.common.compat.sdk import BaseHook
+from airflow.providers.amazon.aws.hooks.base_aws import AwsBaseHook
 
 TWELVE_HOURS_IN_MINUTES = 12 * 60
 
 
-class SageMakerUnifiedStudioNotebookHook(BaseHook):
+class SageMakerUnifiedStudioNotebookHook(AwsBaseHook):
     """
     Interact with Sagemaker Unified Studio Workflows for asynchronous notebook execution.
 
@@ -61,6 +60,12 @@ class SageMakerUnifiedStudioNotebookHook(BaseHook):
         ``run_timeout_in_minutes * 60 / waiter_delay``. Defaults to 12 hours.
         Example: {"run_timeout_in_minutes": 720}
     :param workflow_name: Name of the workflow (DAG) that triggered this run.
+
+    Additional arguments (such as ``aws_conn_id`` or ``region_name``) may be specified and
+    are passed down to the underlying AwsBaseHook.
+
+    .. seealso::
+        - :class:`airflow.providers.amazon.aws.hooks.base_aws.AwsBaseHook`
     """
 
     def __init__(
@@ -69,10 +74,10 @@ class SageMakerUnifiedStudioNotebookHook(BaseHook):
         project_id: str,
         waiter_delay: int = 10,
         timeout_configuration: dict | None = None,
-        *args,
-        **kwargs,
+        *args: Any,
+        **kwargs: Any,
     ):
-        super().__init__(*args, **kwargs)
+        super().__init__(client_type="datazone", *args, **kwargs)  # type: ignore[misc]
         self.domain_id = domain_id
         self.project_id = project_id
         self.waiter_delay = waiter_delay
@@ -81,17 +86,8 @@ class SageMakerUnifiedStudioNotebookHook(BaseHook):
             "run_timeout_in_minutes", TWELVE_HOURS_IN_MINUTES
         )  # Default timeout is 12 hours
         self.waiter_max_attempts = int(run_timeout * 60 / self.waiter_delay)
-        self._client = None
 
-    @property
-    def client(self):
-        """Lazy-initialized boto3 DataZone client."""
-        if self._client is None:
-            self._client = boto3.client("datazone")
-            self._validate_api_availability()
-        return self._client
-
-    def _validate_api_availability(self):
+    def _validate_api_availability(self) -> None:
         """
         Verify that the NotebookRun APIs are available in the installed boto3/botocore version.
 
@@ -99,7 +95,7 @@ class SageMakerUnifiedStudioNotebookHook(BaseHook):
         """
         required_methods = ("start_notebook_run", "get_notebook_run")
         for method_name in required_methods:
-            if not hasattr(self._client, method_name):
+            if not hasattr(self.conn, method_name):
                 raise RuntimeError(
                     f"The '{method_name}' API is not available in the installed boto3/botocore version. "
                     "Please upgrade boto3/botocore to a version that supports the DataZone "
@@ -143,7 +139,7 @@ class SageMakerUnifiedStudioNotebookHook(BaseHook):
             params["trigger_source"] = {"type": "workflow", "workflow_name": workflow_name}
 
         self.log.info("Starting notebook run for notebook %s in domain %s", notebook_id, self.domain_id)
-        return self.client.start_notebook_run(**params)
+        return self.conn.start_notebook_run(**params)
 
     def get_notebook_run(self, notebook_run_id: str) -> dict:
         """
@@ -152,7 +148,7 @@ class SageMakerUnifiedStudioNotebookHook(BaseHook):
         :param notebook_run_id: The ID of the notebook run.
         :return: The GetNotebookRun API response dict.
         """
-        return self.client.get_notebook_run(
+        return self.conn.get_notebook_run(
             domain_id=self.domain_id,
             notebook_run_id=notebook_run_id,
         )
@@ -168,14 +164,16 @@ class SageMakerUnifiedStudioNotebookHook(BaseHook):
         for _attempt in range(self.waiter_max_attempts):
             time.sleep(self.waiter_delay)
             response = self.get_notebook_run(notebook_run_id)
-            status = response.get("status")
+            status = response.get("status", "")
             error_message = response.get("errorMessage", "")
 
             ret = self._handle_state(notebook_run_id, status, error_message)
             if ret:
                 return ret
 
-        return self._handle_state(notebook_run_id, "FAILED", "Execution timed out")
+        error_message = "Execution timed out"
+        self.log.error("Notebook run %s failed with error: %s", notebook_run_id, error_message)
+        raise RuntimeError(error_message)
 
     def _handle_state(self, notebook_run_id: str, state: str, error_message: str) -> dict | None:
         """

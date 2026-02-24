@@ -16,7 +16,7 @@
 # under the License.
 from __future__ import annotations
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, PropertyMock, patch
 
 import pytest
 
@@ -31,7 +31,7 @@ NOTEBOOK_RUN_ID = "nr-1234567890"
 
 HOOK_PATH = (
     "airflow.providers.amazon.aws.sensors.sagemaker_unified_studio_notebook"
-    ".SageMakerUnifiedStudioNotebookHook"
+    ".SageMakerUnifiedStudioNotebookSensor.hook"
 )
 
 
@@ -49,24 +49,26 @@ class TestSageMakerUnifiedStudioNotebookSensor:
         assert sensor.success_states == ["SUCCEEDED"]
         assert sensor.in_progress_states == ["QUEUED", "STARTING", "RUNNING", "STOPPING"]
 
-    @patch(HOOK_PATH)
-    def test_hook_property(self, mock_hook_cls):
+    def test_hook_property(self):
+        from airflow.providers.amazon.aws.hooks.sagemaker_unified_studio_notebook import (
+            SageMakerUnifiedStudioNotebookHook,
+        )
+
         sensor = SageMakerUnifiedStudioNotebookSensor(
             task_id="test_task",
             domain_id=DOMAIN_ID,
             project_id=PROJECT_ID,
             notebook_run_id=NOTEBOOK_RUN_ID,
+            aws_conn_id=None,
         )
-        hook = sensor.hook
-        mock_hook_cls.assert_called_once_with(
-            domain_id=DOMAIN_ID,
-            project_id=PROJECT_ID,
-        )
-        assert hook is mock_hook_cls.return_value
+        assert isinstance(sensor.hook, SageMakerUnifiedStudioNotebookHook)
+        assert sensor.hook.domain_id == DOMAIN_ID
+        assert sensor.hook.project_id == PROJECT_ID
 
-    @patch(HOOK_PATH)
-    def test_poke_success_state(self, mock_hook_cls):
-        mock_hook_instance = mock_hook_cls.return_value
+    @patch(HOOK_PATH, new_callable=PropertyMock)
+    def test_poke_success_state(self, mock_hook_prop):
+        mock_hook_instance = MagicMock()
+        mock_hook_prop.return_value = mock_hook_instance
         mock_hook_instance.get_notebook_run.return_value = {"status": "SUCCEEDED"}
 
         sensor = SageMakerUnifiedStudioNotebookSensor(
@@ -81,9 +83,10 @@ class TestSageMakerUnifiedStudioNotebookSensor:
         mock_hook_instance.get_notebook_run.assert_called_once_with(NOTEBOOK_RUN_ID)
 
     @pytest.mark.parametrize("status", ["QUEUED", "STARTING", "RUNNING", "STOPPING"])
-    @patch(HOOK_PATH)
-    def test_poke_in_progress_states(self, mock_hook_cls, status):
-        mock_hook_instance = mock_hook_cls.return_value
+    @patch(HOOK_PATH, new_callable=PropertyMock)
+    def test_poke_in_progress_states(self, mock_hook_prop, status):
+        mock_hook_instance = MagicMock()
+        mock_hook_prop.return_value = mock_hook_instance
         mock_hook_instance.get_notebook_run.return_value = {"status": status}
 
         sensor = SageMakerUnifiedStudioNotebookSensor(
@@ -97,9 +100,10 @@ class TestSageMakerUnifiedStudioNotebookSensor:
         assert result is False
         mock_hook_instance.get_notebook_run.assert_called_once_with(NOTEBOOK_RUN_ID)
 
-    @patch(HOOK_PATH)
-    def test_poke_failed_state(self, mock_hook_cls):
-        mock_hook_instance = mock_hook_cls.return_value
+    @patch(HOOK_PATH, new_callable=PropertyMock)
+    def test_poke_failed_state(self, mock_hook_prop):
+        mock_hook_instance = MagicMock()
+        mock_hook_prop.return_value = mock_hook_instance
         mock_hook_instance.get_notebook_run.return_value = {"status": "FAILED"}
 
         sensor = SageMakerUnifiedStudioNotebookSensor(
@@ -114,9 +118,10 @@ class TestSageMakerUnifiedStudioNotebookSensor:
 
         mock_hook_instance.get_notebook_run.assert_called_once_with(NOTEBOOK_RUN_ID)
 
-    @patch(HOOK_PATH)
-    def test_poke_stopped_state(self, mock_hook_cls):
-        mock_hook_instance = mock_hook_cls.return_value
+    @patch(HOOK_PATH, new_callable=PropertyMock)
+    def test_poke_stopped_state(self, mock_hook_prop):
+        mock_hook_instance = MagicMock()
+        mock_hook_prop.return_value = mock_hook_instance
         mock_hook_instance.get_notebook_run.return_value = {"status": "STOPPED"}
 
         sensor = SageMakerUnifiedStudioNotebookSensor(
@@ -129,9 +134,10 @@ class TestSageMakerUnifiedStudioNotebookSensor:
         with pytest.raises(RuntimeError, match=f"Exiting notebook run {NOTEBOOK_RUN_ID}. State: STOPPED"):
             sensor.poke(context=MagicMock(spec=Context))
 
-    @patch(HOOK_PATH)
-    def test_poke_unexpected_state(self, mock_hook_cls):
-        mock_hook_instance = mock_hook_cls.return_value
+    @patch(HOOK_PATH, new_callable=PropertyMock)
+    def test_poke_unexpected_state(self, mock_hook_prop):
+        mock_hook_instance = MagicMock()
+        mock_hook_prop.return_value = mock_hook_instance
         mock_hook_instance.get_notebook_run.return_value = {"status": "UNKNOWN_STATE"}
 
         sensor = SageMakerUnifiedStudioNotebookSensor(
@@ -146,9 +152,10 @@ class TestSageMakerUnifiedStudioNotebookSensor:
         ):
             sensor.poke(context=MagicMock(spec=Context))
 
-    @patch(HOOK_PATH)
-    def test_poke_empty_status(self, mock_hook_cls):
-        mock_hook_instance = mock_hook_cls.return_value
+    @patch(HOOK_PATH, new_callable=PropertyMock)
+    def test_poke_empty_status(self, mock_hook_prop):
+        mock_hook_instance = MagicMock()
+        mock_hook_prop.return_value = mock_hook_instance
         mock_hook_instance.get_notebook_run.return_value = {}
 
         sensor = SageMakerUnifiedStudioNotebookSensor(
