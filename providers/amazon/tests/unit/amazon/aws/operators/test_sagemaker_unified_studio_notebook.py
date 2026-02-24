@@ -167,7 +167,7 @@ class TestSageMakerUnifiedStudioNotebookOperator:
     @patch(HOOK_PATH)
     def test_execute_propagates_start_failure(self, mock_hook_cls):
         mock_hook = mock_hook_cls.return_value
-        mock_hook.start_notebook_run.side_effect = AirflowException("API unavailable")
+        mock_hook.start_notebook_run.side_effect = RuntimeError("API unavailable")
 
         op = SageMakerUnifiedStudioNotebookOperator(
             task_id=TASK_ID,
@@ -175,14 +175,14 @@ class TestSageMakerUnifiedStudioNotebookOperator:
             domain_id=DOMAIN_ID,
             project_id=PROJECT_ID,
         )
-        with pytest.raises(AirflowException, match="API unavailable"):
+        with pytest.raises(RuntimeError, match="API unavailable"):
             op.execute(_make_context())
 
     @patch(HOOK_PATH)
     def test_execute_propagates_wait_failure(self, mock_hook_cls):
         mock_hook = mock_hook_cls.return_value
         mock_hook.start_notebook_run.return_value = {"notebook_run_id": NOTEBOOK_RUN_ID}
-        mock_hook.wait_for_notebook_run.side_effect = AirflowException("Notebook crashed")
+        mock_hook.wait_for_notebook_run.side_effect = RuntimeError("Notebook crashed")
 
         op = SageMakerUnifiedStudioNotebookOperator(
             task_id=TASK_ID,
@@ -190,7 +190,7 @@ class TestSageMakerUnifiedStudioNotebookOperator:
             domain_id=DOMAIN_ID,
             project_id=PROJECT_ID,
         )
-        with pytest.raises(AirflowException, match="Notebook crashed"):
+        with pytest.raises(RuntimeError, match="Notebook crashed"):
             op.execute(_make_context())
 
     # --- execute with minimal params (no optionals) ---
@@ -310,7 +310,7 @@ class TestSageMakerUnifiedStudioNotebookOperator:
             project_id=PROJECT_ID,
         )
         event = {"status": "FAILED", "notebook_run_id": NOTEBOOK_RUN_ID, "message": "OOM"}
-        with pytest.raises(AirflowException, match="Notebook run did not succeed"):
+        with pytest.raises(RuntimeError, match="Notebook run did not succeed"):
             op.execute_complete(context=_make_context(), event=event)
 
     def test_execute_complete_none_event(self):

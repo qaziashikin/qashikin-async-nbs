@@ -30,7 +30,7 @@ from typing import TYPE_CHECKING
 from airflow.providers.amazon.aws.hooks.sagemaker_unified_studio_notebook import (
     SageMakerUnifiedStudioNotebookHook,
 )
-from airflow.providers.common.compat.sdk import AirflowException, BaseSensorOperator
+from airflow.providers.common.compat.sdk import BaseSensorOperator
 
 if TYPE_CHECKING:
     from airflow.sdk import Context
@@ -98,7 +98,7 @@ class SageMakerUnifiedStudioNotebookSensor(BaseSensorOperator):
 
         error_message = f"Exiting notebook run {self.notebook_run_id}. State: {status}"
         self.log.info(error_message)
-        raise AirflowException(error_message)
+        raise RuntimeError(error_message)
 
     def execute(self, context: Context):
         # This will invoke poke method in the base sensor

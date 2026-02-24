@@ -23,7 +23,7 @@ import pytest
 from airflow.providers.amazon.aws.sensors.sagemaker_unified_studio_notebook import (
     SageMakerUnifiedStudioNotebookSensor,
 )
-from airflow.providers.common.compat.sdk import AirflowException, Context
+from airflow.providers.common.compat.sdk import Context
 
 DOMAIN_ID = "dzd_example"
 PROJECT_ID = "proj_example"
@@ -109,7 +109,7 @@ class TestSageMakerUnifiedStudioNotebookSensor:
             notebook_run_id=NOTEBOOK_RUN_ID,
         )
 
-        with pytest.raises(AirflowException, match=f"Exiting notebook run {NOTEBOOK_RUN_ID}. State: FAILED"):
+        with pytest.raises(RuntimeError, match=f"Exiting notebook run {NOTEBOOK_RUN_ID}. State: FAILED"):
             sensor.poke(context=MagicMock(spec=Context))
 
         mock_hook_instance.get_notebook_run.assert_called_once_with(NOTEBOOK_RUN_ID)
@@ -126,7 +126,7 @@ class TestSageMakerUnifiedStudioNotebookSensor:
             notebook_run_id=NOTEBOOK_RUN_ID,
         )
 
-        with pytest.raises(AirflowException, match=f"Exiting notebook run {NOTEBOOK_RUN_ID}. State: STOPPED"):
+        with pytest.raises(RuntimeError, match=f"Exiting notebook run {NOTEBOOK_RUN_ID}. State: STOPPED"):
             sensor.poke(context=MagicMock(spec=Context))
 
     @patch(HOOK_PATH)
@@ -142,7 +142,7 @@ class TestSageMakerUnifiedStudioNotebookSensor:
         )
 
         with pytest.raises(
-            AirflowException, match=f"Exiting notebook run {NOTEBOOK_RUN_ID}. State: UNKNOWN_STATE"
+            RuntimeError, match=f"Exiting notebook run {NOTEBOOK_RUN_ID}. State: UNKNOWN_STATE"
         ):
             sensor.poke(context=MagicMock(spec=Context))
 
@@ -158,7 +158,7 @@ class TestSageMakerUnifiedStudioNotebookSensor:
             notebook_run_id=NOTEBOOK_RUN_ID,
         )
 
-        with pytest.raises(AirflowException, match=f"Exiting notebook run {NOTEBOOK_RUN_ID}. State: "):
+        with pytest.raises(RuntimeError, match=f"Exiting notebook run {NOTEBOOK_RUN_ID}. State: "):
             sensor.poke(context=MagicMock(spec=Context))
 
     @patch.object(SageMakerUnifiedStudioNotebookSensor, "poke", return_value=True)

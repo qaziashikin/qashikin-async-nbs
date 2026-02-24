@@ -37,7 +37,7 @@ from airflow.providers.amazon.aws.triggers.sagemaker_unified_studio_notebook imp
     SageMakerUnifiedStudioNotebookTrigger,
 )
 from airflow.providers.amazon.aws.utils import validate_execute_complete_event
-from airflow.providers.common.compat.sdk import AirflowException, BaseOperator, conf
+from airflow.providers.common.compat.sdk import BaseOperator, conf
 
 if TYPE_CHECKING:
     from airflow.sdk import Context
@@ -161,7 +161,7 @@ class SageMakerUnifiedStudioNotebookOperator(BaseOperator):
         validated_event = validate_execute_complete_event(event)
 
         if validated_event.get("status") != "SUCCEEDED":
-            raise AirflowException(f"Notebook run did not succeed: {validated_event}")
+            raise RuntimeError(f"Notebook run did not succeed: {validated_event}")
 
         notebook_run_id = validated_event["notebook_run_id"]
         self.log.info("Notebook run %s completed for notebook %s", notebook_run_id, self.notebook_id)

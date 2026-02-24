@@ -24,7 +24,7 @@ import uuid
 
 import boto3
 
-from airflow.providers.common.compat.sdk import AirflowException, BaseHook
+from airflow.providers.common.compat.sdk import BaseHook
 
 TWELVE_HOURS_IN_MINUTES = 12 * 60
 
@@ -95,12 +95,12 @@ class SageMakerUnifiedStudioNotebookHook(BaseHook):
         """
         Verify that the NotebookRun APIs are available in the installed boto3/botocore version.
 
-        :raises AirflowException: If the required APIs are not available.
+        :raises RuntimeError: If the required APIs are not available.
         """
         required_methods = ("start_notebook_run", "get_notebook_run")
         for method_name in required_methods:
             if not hasattr(self._client, method_name):
-                raise AirflowException(
+                raise RuntimeError(
                     f"The '{method_name}' API is not available in the installed boto3/botocore version. "
                     "Please upgrade boto3/botocore to a version that supports the DataZone "
                     "NotebookRun APIs."
@@ -163,7 +163,7 @@ class SageMakerUnifiedStudioNotebookHook(BaseHook):
 
         :param notebook_run_id: The ID of the notebook run to monitor.
         :return: A dict with Status and NotebookRunId on success.
-        :raises AirflowException: If the run fails or times out.
+        :raises RuntimeError: If the run fails or times out.
         """
         for _attempt in range(self.waiter_max_attempts):
             time.sleep(self.waiter_delay)
@@ -185,7 +185,7 @@ class SageMakerUnifiedStudioNotebookHook(BaseHook):
         :param state: The current state string.
         :param error_message: Error message from the API response, if any.
         :return: A dict with Status and NotebookRunId on success, None if still in progress.
-        :raises AirflowException: If the run has failed.
+        :raises RuntimeError: If the run has failed.
         """
         in_progress_states = {"QUEUED", "STARTING", "RUNNING", "STOPPING"}
         finished_states = {"SUCCEEDED", "STOPPED"}
@@ -214,4 +214,4 @@ class SageMakerUnifiedStudioNotebookHook(BaseHook):
 
         if error_message == "":
             error_message = execution_message
-        raise AirflowException(error_message)
+        raise RuntimeError(error_message)
