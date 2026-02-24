@@ -94,7 +94,7 @@ class SageMakerUnifiedStudioNotebookOperator(BaseOperator):
 
     def __init__(
         self,
-        task_id: str,
+        *,
         notebook_id: str,
         domain_id: str,
         project_id: str,
@@ -107,7 +107,7 @@ class SageMakerUnifiedStudioNotebookOperator(BaseOperator):
         deferrable: bool = conf.getboolean("operators", "default_deferrable", fallback=False),
         **kwargs,
     ):
-        super().__init__(task_id=task_id, **kwargs)
+        super().__init__(**kwargs)
         self.notebook_id = notebook_id
         self.domain_id = domain_id
         self.project_id = project_id
