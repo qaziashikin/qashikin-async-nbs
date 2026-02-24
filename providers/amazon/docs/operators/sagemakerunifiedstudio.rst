@@ -24,7 +24,7 @@ brings together AWS data, analytics, artificial intelligence (AI), and machine l
 It provides a place to build, deploy, execute, and monitor end-to-end workflows from a single interface.
 This helps drive collaboration across teams and facilitate agile development.
 
-Airflow provides different operators for running artifacts in SageMaker Unified Studio. Be sure to read the descriptions 
+Airflow provides different operators for running artifacts in SageMaker Unified Studio. Read the descriptions 
 below to understand which operator is best suited for your use case.
 
 Prerequisite Tasks

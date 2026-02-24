@@ -117,7 +117,7 @@ class TestSageMakerUnifiedStudioNotebookOperator:
         mock_hook = mock_hook_cls.return_value
         mock_hook.start_notebook_run.return_value = {"notebook_run_id": NOTEBOOK_RUN_ID}
         mock_hook.wait_for_notebook_run.return_value = {
-            "Status": "SUCCEEDED",
+            "State": "SUCCEEDED",
             "NotebookRunId": NOTEBOOK_RUN_ID,
         }
 
@@ -161,44 +161,6 @@ class TestSageMakerUnifiedStudioNotebookOperator:
 
         call_kwargs = mock_hook.start_notebook_run.call_args[1]
         assert call_kwargs["workflow_name"] == "my_custom_dag"
-
-    # --- execute validation errors ---
-
-    @patch(HOOK_PATH)
-    def test_execute_raises_when_notebook_id_empty(self, mock_hook_cls):
-        op = SageMakerUnifiedStudioNotebookOperator(
-            task_id=TASK_ID,
-            notebook_id="",
-            domain_id=DOMAIN_ID,
-            project_id=PROJECT_ID,
-        )
-        with pytest.raises(AirflowException, match="notebook_id is required"):
-            op.execute(_make_context())
-        mock_hook_cls.return_value.start_notebook_run.assert_not_called()
-
-    @patch(HOOK_PATH)
-    def test_execute_raises_when_domain_id_empty(self, mock_hook_cls):
-        op = SageMakerUnifiedStudioNotebookOperator(
-            task_id=TASK_ID,
-            notebook_id=NOTEBOOK_ID,
-            domain_id="",
-            project_id=PROJECT_ID,
-        )
-        with pytest.raises(AirflowException, match="domain_id is required"):
-            op.execute(_make_context())
-        mock_hook_cls.return_value.start_notebook_run.assert_not_called()
-
-    @patch(HOOK_PATH)
-    def test_execute_raises_when_project_id_empty(self, mock_hook_cls):
-        op = SageMakerUnifiedStudioNotebookOperator(
-            task_id=TASK_ID,
-            notebook_id=NOTEBOOK_ID,
-            domain_id=DOMAIN_ID,
-            project_id="",
-        )
-        with pytest.raises(AirflowException, match="project_id is required"):
-            op.execute(_make_context())
-        mock_hook_cls.return_value.start_notebook_run.assert_not_called()
 
     # --- execute propagates hook failures ---
 

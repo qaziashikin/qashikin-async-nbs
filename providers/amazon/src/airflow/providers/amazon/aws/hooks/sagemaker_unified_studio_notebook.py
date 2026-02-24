@@ -166,7 +166,7 @@ class SageMakerUnifiedStudioNotebookHook(BaseHook):
         :return: A dict with Status and NotebookRunId on success.
         :raises AirflowException: If the run fails or times out.
         """
-        for _attempt in range(1, self.waiter_max_attempts + 1):
+        for _attempt in range(self.waiter_max_attempts):
             time.sleep(self.waiter_delay)
             response = self.get_notebook_run(notebook_run_id)
             status = response.get("status")
@@ -178,12 +178,12 @@ class SageMakerUnifiedStudioNotebookHook(BaseHook):
 
         return self._handle_state(notebook_run_id, "FAILED", "Execution timed out")
 
-    def _handle_state(self, notebook_run_id: str, status: str, error_message: str) -> dict | None:
+    def _handle_state(self, notebook_run_id: str, state: str, error_message: str) -> dict | None:
         """
         Evaluate the current notebook run state and return or raise accordingly.
 
         :param notebook_run_id: The ID of the notebook run.
-        :param status: The current status string.
+        :param state: The current state string.
         :param error_message: Error message from the API response, if any.
         :return: A dict with Status and NotebookRunId on success, None if still in progress.
         :raises AirflowException: If the run has failed.
@@ -192,25 +192,25 @@ class SageMakerUnifiedStudioNotebookHook(BaseHook):
         finished_states = {"SUCCEEDED", "STOPPED"}
         failure_states = {"FAILED"}
 
-        if status in in_progress_states:
+        if state in in_progress_states:
             log_message = (
-                f"Notebook run {notebook_run_id} is still in progress with state: {status}, "
+                f"Notebook run {notebook_run_id} is still in progress with state: {state}, "
                 f"will check for a terminal status again in {self.waiter_delay}s"
             )
             self.log.info(log_message)
             return None
 
-        execution_message = f"Exiting notebook run {notebook_run_id}. State: {status}"
+        execution_message = f"Exiting notebook run {notebook_run_id}. State: {state}"
 
-        if status in finished_states:
+        if state in finished_states:
             self.log.info(execution_message)
-            return {"Status": status, "NotebookRunId": notebook_run_id}
+            return {"State": state, "NotebookRunId": notebook_run_id}
 
-        if status in failure_states:
+        if state in failure_states:
             log_message = f"Notebook run {notebook_run_id} failed with error: {error_message}"
             self.log.error(log_message)
         else:
-            log_message = f"Notebook run {notebook_run_id} reached unexpected state: {status}"
+            log_message = f"Notebook run {notebook_run_id} reached unexpected state: {state}"
             self.log.error(log_message)
 
         if error_message == "":

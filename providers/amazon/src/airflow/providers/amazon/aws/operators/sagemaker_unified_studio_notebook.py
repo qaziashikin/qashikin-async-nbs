@@ -45,10 +45,10 @@ if TYPE_CHECKING:
 
 class SageMakerUnifiedStudioNotebookOperator(BaseOperator):
     """
-    Execute a notebook asynchronously in SageMaker Unified Studio.
+    Execute a notebook in SageMaker Unified Studio.
 
     This operator calls the DataZone StartNotebookRun API to kick off
-    headless notebook execution, and, when not configured otherwise, polls
+    headless notebook execution. When not configured otherwise, polls
     the GetNotebookRun API until the run reaches a terminal state.
 
     Examples:
@@ -129,13 +129,6 @@ class SageMakerUnifiedStudioNotebookOperator(BaseOperator):
         )
 
     def execute(self, context: Context):
-        if not self.notebook_id:
-            raise AirflowException("notebook_id is required")
-        if not self.domain_id:
-            raise AirflowException("domain_id is required")
-        if not self.project_id:
-            raise AirflowException("project_id is required")
-
         workflow_name = context["dag"].dag_id  # Workflow name is the same as the dag_id
         response = self.hook.start_notebook_run(
             notebook_id=self.notebook_id,
@@ -162,8 +155,6 @@ class SageMakerUnifiedStudioNotebookOperator(BaseOperator):
             )
         elif self.wait_for_completion:
             self.hook.wait_for_notebook_run(notebook_run_id)
-            log_message = f"Notebook run {notebook_run_id} completed for notebook {self.notebook_id}"
-            self.log.info(log_message)
 
         return notebook_run_id
 

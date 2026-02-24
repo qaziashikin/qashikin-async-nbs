@@ -172,12 +172,12 @@ class TestSageMakerUnifiedStudioNotebookHook:
     def test_handle_state_succeeded(self):
         """SUCCEEDED state returns success dict."""
         result = self.hook._handle_state(NOTEBOOK_RUN_ID, "SUCCEEDED", "")
-        assert result == {"Status": "SUCCEEDED", "NotebookRunId": NOTEBOOK_RUN_ID}
+        assert result == {"State": "SUCCEEDED", "NotebookRunId": NOTEBOOK_RUN_ID}
 
     def test_handle_state_stopped(self):
         """STOPPED is a finished state and returns success dict."""
         result = self.hook._handle_state(NOTEBOOK_RUN_ID, "STOPPED", "")
-        assert result == {"Status": "STOPPED", "NotebookRunId": NOTEBOOK_RUN_ID}
+        assert result == {"State": "STOPPED", "NotebookRunId": NOTEBOOK_RUN_ID}
 
     def test_handle_state_failed_with_error_message(self):
         """FAILED state with error message raises AirflowException with that message."""
@@ -203,7 +203,7 @@ class TestSageMakerUnifiedStudioNotebookHook:
 
         result = self.hook.wait_for_notebook_run(NOTEBOOK_RUN_ID)
 
-        assert result == {"Status": "SUCCEEDED", "NotebookRunId": NOTEBOOK_RUN_ID}
+        assert result == {"State": "SUCCEEDED", "NotebookRunId": NOTEBOOK_RUN_ID}
         mock_sleep.assert_called_once_with(5)
 
     @patch("airflow.providers.amazon.aws.hooks.sagemaker_unified_studio_notebook.time.sleep")
@@ -218,7 +218,7 @@ class TestSageMakerUnifiedStudioNotebookHook:
 
         result = self.hook.wait_for_notebook_run(NOTEBOOK_RUN_ID)
 
-        assert result == {"Status": "SUCCEEDED", "NotebookRunId": NOTEBOOK_RUN_ID}
+        assert result == {"State": "SUCCEEDED", "NotebookRunId": NOTEBOOK_RUN_ID}
         assert mock_sleep.call_count == 4
 
     @patch("airflow.providers.amazon.aws.hooks.sagemaker_unified_studio_notebook.time.sleep")
