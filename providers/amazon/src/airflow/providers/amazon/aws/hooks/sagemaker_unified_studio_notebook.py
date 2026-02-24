@@ -142,8 +142,7 @@ class SageMakerUnifiedStudioNotebookHook(BaseHook):
         if workflow_name:
             params["trigger_source"] = {"type": "workflow", "workflow_name": workflow_name}
 
-        log_message = f"Starting notebook run for notebook {notebook_id} in domain {self.domain_id}"
-        self.log.info(log_message)
+        self.log.info("Starting notebook run for notebook %s in domain %s", notebook_id, self.domain_id)
         return self.client.start_notebook_run(**params)
 
     def get_notebook_run(self, notebook_run_id: str) -> dict:
@@ -193,11 +192,13 @@ class SageMakerUnifiedStudioNotebookHook(BaseHook):
         failure_states = {"FAILED"}
 
         if state in in_progress_states:
-            log_message = (
-                f"Notebook run {notebook_run_id} is still in progress with state: {state}, "
-                f"will check for a terminal status again in {self.waiter_delay}s"
+            self.log.info(
+                "Notebook run %s is still in progress with state: %s, "
+                "will check for a terminal status again in %ss",
+                notebook_run_id,
+                state,
+                self.waiter_delay,
             )
-            self.log.info(log_message)
             return None
 
         execution_message = f"Exiting notebook run {notebook_run_id}. State: {state}"
@@ -207,11 +208,9 @@ class SageMakerUnifiedStudioNotebookHook(BaseHook):
             return {"State": state, "NotebookRunId": notebook_run_id}
 
         if state in failure_states:
-            log_message = f"Notebook run {notebook_run_id} failed with error: {error_message}"
-            self.log.error(log_message)
+            self.log.error("Notebook run %s failed with error: %s", notebook_run_id, error_message)
         else:
-            log_message = f"Notebook run {notebook_run_id} reached unexpected state: {state}"
-            self.log.error(log_message)
+            self.log.error("Notebook run %s reached unexpected state: %s", notebook_run_id, state)
 
         if error_message == "":
             error_message = execution_message

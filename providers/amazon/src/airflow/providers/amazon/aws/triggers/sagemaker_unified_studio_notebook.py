@@ -139,10 +139,12 @@ class SageMakerUnifiedStudioNotebookTrigger(BaseTrigger):
                     )
                     return
 
-                log_message = (
-                    f"Notebook run {self.notebook_run_id} is {status}, checking again in {self.waiter_delay}s"
+                self.log.info(
+                    "Notebook run %s is %s, checking again in %ss",
+                    self.notebook_run_id,
+                    status,
+                    self.waiter_delay,
                 )
-                self.log.info(log_message)
                 await asyncio.sleep(self.waiter_delay)
 
             yield TriggerEvent(
