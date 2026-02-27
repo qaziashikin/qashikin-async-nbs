@@ -94,8 +94,6 @@ class SageMakerUnifiedStudioNotebookTrigger(AwsBaseWaiterTrigger):
 
     def hook(self) -> AwsGenericHook:
         return SageMakerUnifiedStudioNotebookHook(
-            domain_id=self.domain_id,
-            project_id=self.project_id,
             aws_conn_id=self.aws_conn_id,
             region_name=self.region_name,
             verify=self.verify,

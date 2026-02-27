@@ -62,8 +62,7 @@ class TestSageMakerUnifiedStudioNotebookSensor:
             aws_conn_id=None,
         )
         assert isinstance(sensor.hook, SageMakerUnifiedStudioNotebookHook)
-        assert sensor.hook.domain_id == DOMAIN_ID
-        assert sensor.hook.project_id == PROJECT_ID
+        assert sensor.hook.client_type == "datazone"
 
     @patch(HOOK_PATH, new_callable=PropertyMock)
     def test_poke_success_state(self, mock_hook_prop):
@@ -80,7 +79,7 @@ class TestSageMakerUnifiedStudioNotebookSensor:
 
         result = sensor.poke(context=MagicMock(spec=Context))
         assert result is True
-        mock_hook_instance.get_notebook_run.assert_called_once_with(NOTEBOOK_RUN_ID)
+        mock_hook_instance.get_notebook_run.assert_called_once_with(NOTEBOOK_RUN_ID, domain_id=DOMAIN_ID)
 
     @pytest.mark.parametrize("status", ["QUEUED", "STARTING", "RUNNING", "STOPPING"])
     @patch(HOOK_PATH, new_callable=PropertyMock)
@@ -98,7 +97,7 @@ class TestSageMakerUnifiedStudioNotebookSensor:
 
         result = sensor.poke(context=MagicMock(spec=Context))
         assert result is False
-        mock_hook_instance.get_notebook_run.assert_called_once_with(NOTEBOOK_RUN_ID)
+        mock_hook_instance.get_notebook_run.assert_called_once_with(NOTEBOOK_RUN_ID, domain_id=DOMAIN_ID)
 
     @patch(HOOK_PATH, new_callable=PropertyMock)
     def test_poke_failed_state(self, mock_hook_prop):
@@ -116,7 +115,7 @@ class TestSageMakerUnifiedStudioNotebookSensor:
         with pytest.raises(RuntimeError, match=f"Exiting notebook run {NOTEBOOK_RUN_ID}. State: FAILED"):
             sensor.poke(context=MagicMock(spec=Context))
 
-        mock_hook_instance.get_notebook_run.assert_called_once_with(NOTEBOOK_RUN_ID)
+        mock_hook_instance.get_notebook_run.assert_called_once_with(NOTEBOOK_RUN_ID, domain_id=DOMAIN_ID)
 
     @patch(HOOK_PATH, new_callable=PropertyMock)
     def test_poke_stopped_state(self, mock_hook_prop):

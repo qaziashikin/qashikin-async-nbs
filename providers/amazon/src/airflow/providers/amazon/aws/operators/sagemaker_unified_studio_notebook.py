@@ -120,20 +120,12 @@ class SageMakerUnifiedStudioNotebookOperator(AwsBaseOperator[SageMakerUnifiedStu
         self.waiter_delay = waiter_delay
         self.deferrable = deferrable
 
-    @property
-    def _hook_parameters(self):
-        return {
-            **super()._hook_parameters,
-            "domain_id": self.domain_id,
-            "project_id": self.project_id,
-            "waiter_delay": self.waiter_delay,
-            "timeout_configuration": self.timeout_configuration,
-        }
-
     def execute(self, context: Context):
         workflow_name = context["dag"].dag_id  # Workflow name is the same as the dag_id
         response = self.hook.start_notebook_run(
             notebook_id=self.notebook_id,
+            domain_id=self.domain_id,
+            project_id=self.project_id,
             client_token=self.client_token,
             notebook_parameters=self.notebook_parameters,
             compute_configuration=self.compute_configuration,
@@ -155,7 +147,12 @@ class SageMakerUnifiedStudioNotebookOperator(AwsBaseOperator[SageMakerUnifiedStu
                 method_name="execute_complete",
             )
         elif self.wait_for_completion:
-            self.hook.wait_for_notebook_run(notebook_run_id)
+            self.hook.wait_for_notebook_run(
+                notebook_run_id,
+                domain_id=self.domain_id,
+                waiter_delay=self.waiter_delay,
+                timeout_configuration=self.timeout_configuration,
+            )
 
         return notebook_run_id
 

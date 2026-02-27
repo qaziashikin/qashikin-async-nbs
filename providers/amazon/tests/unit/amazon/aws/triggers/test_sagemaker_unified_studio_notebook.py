@@ -97,5 +97,4 @@ class TestSageMakerUnifiedStudioNotebookTrigger:
         trigger = self._create_trigger()
         hook = trigger.hook()
         assert isinstance(hook, SageMakerUnifiedStudioNotebookHook)
-        assert hook.domain_id == DOMAIN_ID
-        assert hook.project_id == PROJECT_ID
+        assert hook.client_type == "datazone"

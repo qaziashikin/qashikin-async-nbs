@@ -78,17 +78,9 @@ class SageMakerUnifiedStudioNotebookSensor(AwsBaseSensor[SageMakerUnifiedStudioN
         self.success_states = ["SUCCEEDED"]
         self.in_progress_states = ["QUEUED", "STARTING", "RUNNING", "STOPPING"]
 
-    @property
-    def _hook_parameters(self):
-        return {
-            **super()._hook_parameters,
-            "domain_id": self.domain_id,
-            "project_id": self.project_id,
-        }
-
     # override from base sensor
     def poke(self, context: Context) -> bool:
-        response = self.hook.get_notebook_run(self.notebook_run_id)
+        response = self.hook.get_notebook_run(self.notebook_run_id, domain_id=self.domain_id)
         status = response.get("status", "")
 
         if status in self.success_states:

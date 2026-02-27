@@ -106,10 +106,7 @@ class TestSageMakerUnifiedStudioNotebookOperator:
         )
 
         assert isinstance(op.hook, SageMakerUnifiedStudioNotebookHook)
-        assert op.hook.domain_id == DOMAIN_ID
-        assert op.hook.project_id == PROJECT_ID
-        assert op.hook.waiter_delay == 15
-        assert op.hook.timeout_configuration == {"run_timeout_in_minutes": 120}
+        assert op.hook.client_type == "datazone"
 
     # --- execute success ---
 
@@ -139,13 +136,20 @@ class TestSageMakerUnifiedStudioNotebookOperator:
         assert result == NOTEBOOK_RUN_ID
         mock_hook.start_notebook_run.assert_called_once_with(
             notebook_id=NOTEBOOK_ID,
+            domain_id=DOMAIN_ID,
+            project_id=PROJECT_ID,
             client_token="my-token",
             notebook_parameters={"p1": "v1"},
             compute_configuration={"instance_type": "ml.m5.large"},
             timeout_configuration={"run_timeout_in_minutes": 60},
             workflow_name=DAG_ID,
         )
-        mock_hook.wait_for_notebook_run.assert_called_once_with(NOTEBOOK_RUN_ID)
+        mock_hook.wait_for_notebook_run.assert_called_once_with(
+            NOTEBOOK_RUN_ID,
+            domain_id=DOMAIN_ID,
+            waiter_delay=10,
+            timeout_configuration={"run_timeout_in_minutes": 60},
+        )
 
     @patch(HOOK_PATH, new_callable=PropertyMock)
     def test_execute_passes_dag_id_as_workflow_name(self, mock_hook_prop):
