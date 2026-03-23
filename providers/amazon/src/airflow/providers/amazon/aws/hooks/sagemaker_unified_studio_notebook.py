@@ -101,7 +101,7 @@ class SageMakerUnifiedStudioNotebookHook(AwsBaseHook):
         }
 
         if notebook_parameters:
-            params["notebook_parameters"] = notebook_parameters
+            params["parameters"] = {"notebook_parameters": notebook_parameters}
         if compute_configuration:
             params["compute_configuration"] = compute_configuration
         if timeout_configuration:

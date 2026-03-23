@@ -90,7 +90,7 @@ class TestSageMakerUnifiedStudioNotebookHook:
         assert result == {"notebookRunId": NOTEBOOK_RUN_ID}
         call_kwargs = self.mock_client.start_notebook_run.call_args[1]
         assert call_kwargs["client_token"] == "my-token"
-        assert call_kwargs["notebook_parameters"] == {"param1": "value1"}
+        assert call_kwargs["parameters"] == {"notebook_parameters": {"param1": "value1"}}
         assert call_kwargs["compute_configuration"] == {"instance_type": "ml.m5.large"}
         assert call_kwargs["timeout_configuration"] == {"run_timeout_in_minutes": 120}
         assert call_kwargs["trigger_source"] == {"type": "workflow", "workflow_name": "my_dag"}
