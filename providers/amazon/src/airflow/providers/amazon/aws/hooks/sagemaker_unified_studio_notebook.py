@@ -94,9 +94,9 @@ class SageMakerUnifiedStudioNotebookHook(AwsBaseHook):
         :return: The StartNotebookRun API response dict.
         """
         params: dict = {
-            "domain_id": domain_id,
-            "project_id": project_id,
-            "notebook_id": notebook_id,
+            "domain_identifier": domain_id,
+            "owning_project_identifier": project_id,
+            "notebook_identifier": notebook_id,
             "client_token": client_token or str(uuid.uuid4()),
         }
 
@@ -121,8 +121,8 @@ class SageMakerUnifiedStudioNotebookHook(AwsBaseHook):
         :return: The GetNotebookRun API response dict.
         """
         return self.conn.get_notebook_run(
-            domain_id=domain_id,
-            notebook_run_id=notebook_run_id,
+            domain_identifier=domain_id,
+            identifier=notebook_run_id,
         )
 
     def wait_for_notebook_run(

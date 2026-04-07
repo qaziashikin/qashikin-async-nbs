@@ -62,9 +62,9 @@ class TestSageMakerUnifiedStudioNotebookHook:
 
         assert result == {"notebookRunId": NOTEBOOK_RUN_ID}
         call_kwargs = self.mock_client.start_notebook_run.call_args[1]
-        assert call_kwargs["domain_id"] == DOMAIN_ID
-        assert call_kwargs["project_id"] == PROJECT_ID
-        assert call_kwargs["notebook_id"] == NOTEBOOK_ID
+        assert call_kwargs["domain_identifier"] == DOMAIN_ID
+        assert call_kwargs["owning_project_identifier"] == PROJECT_ID
+        assert call_kwargs["notebook_identifier"] == NOTEBOOK_ID
         assert "client_token" in call_kwargs
         # Optional params should not be present
         assert "notebook_parameters" not in call_kwargs
@@ -118,8 +118,8 @@ class TestSageMakerUnifiedStudioNotebookHook:
 
         assert result == expected
         self.mock_client.get_notebook_run.assert_called_once_with(
-            domain_id=DOMAIN_ID,
-            notebook_run_id=NOTEBOOK_RUN_ID,
+            domain_identifier=DOMAIN_ID,
+            identifier=NOTEBOOK_RUN_ID,
         )
 
     # --- _handle_state ---
