@@ -51,13 +51,13 @@ class SageMakerUnifiedStudioNotebookSensor(AwsBaseSensor[SageMakerUnifiedStudioN
 
         notebook_sensor = SageMakerUnifiedStudioNotebookSensor(
             task_id="wait_for_notebook",
-            domain_id="dzd_example",
-            project_id="proj_example",
+            domain_identifier="dzd_example",
+            owning_project_identifier="proj_example",
             notebook_run_id="nr-1234567890",
         )
 
-    :param domain_id: The ID of the SageMaker Unified Studio domain containing the notebook.
-    :param project_id: The ID of the SageMaker Unified Studio project containing the notebook.
+    :param domain_identifier: The ID of the SageMaker Unified Studio domain containing the notebook.
+    :param owning_project_identifier: The ID of the SageMaker Unified Studio project containing the notebook.
     :param notebook_run_id: The ID of the notebook run to monitor.
         This is returned by the ``SageMakerUnifiedStudioNotebookOperator``.
     """
@@ -68,21 +68,21 @@ class SageMakerUnifiedStudioNotebookSensor(AwsBaseSensor[SageMakerUnifiedStudioN
     def __init__(
         self,
         *,
-        domain_id: str,
-        project_id: str,
+        domain_identifier: str,
+        owning_project_identifier: str,
         notebook_run_id: str,
         **kwargs,
     ):
         super().__init__(**kwargs)
-        self.domain_id = domain_id
-        self.project_id = project_id
+        self.domain_identifier = domain_identifier
+        self.owning_project_identifier = owning_project_identifier
         self.notebook_run_id = notebook_run_id
         self.success_states = ["SUCCEEDED"]
         self.in_progress_states = ["QUEUED", "STARTING", "RUNNING", "STOPPING"]
 
     # override from base sensor
     def poke(self, context: Context) -> bool:
-        response = self.hook.get_notebook_run(self.notebook_run_id, domain_id=self.domain_id)
+        response = self.hook.get_notebook_run(self.notebook_run_id, domain_identifier=self.domain_identifier)
         status = response.get("status", "")
 
         if status in self.success_states:
@@ -98,5 +98,5 @@ class SageMakerUnifiedStudioNotebookSensor(AwsBaseSensor[SageMakerUnifiedStudioN
 
     def execute(self, context: Context):
         # This will invoke poke method in the base sensor
-        self.log.info("Polling notebook run %s in domain %s", self.notebook_run_id, self.domain_id)
+        self.log.info("Polling notebook run %s in domain %s", self.notebook_run_id, self.domain_identifier)
         super().execute(context=context)

@@ -39,12 +39,12 @@ class TestSageMakerUnifiedStudioNotebookSensor:
     def test_init(self):
         sensor = SageMakerUnifiedStudioNotebookSensor(
             task_id="test_task",
-            domain_id=DOMAIN_ID,
-            project_id=PROJECT_ID,
+            domain_identifier=DOMAIN_ID,
+            owning_project_identifier=PROJECT_ID,
             notebook_run_id=NOTEBOOK_RUN_ID,
         )
-        assert sensor.domain_id == DOMAIN_ID
-        assert sensor.project_id == PROJECT_ID
+        assert sensor.domain_identifier == DOMAIN_ID
+        assert sensor.owning_project_identifier == PROJECT_ID
         assert sensor.notebook_run_id == NOTEBOOK_RUN_ID
         assert sensor.success_states == ["SUCCEEDED"]
         assert sensor.in_progress_states == ["QUEUED", "STARTING", "RUNNING", "STOPPING"]
@@ -56,8 +56,8 @@ class TestSageMakerUnifiedStudioNotebookSensor:
 
         sensor = SageMakerUnifiedStudioNotebookSensor(
             task_id="test_task",
-            domain_id=DOMAIN_ID,
-            project_id=PROJECT_ID,
+            domain_identifier=DOMAIN_ID,
+            owning_project_identifier=PROJECT_ID,
             notebook_run_id=NOTEBOOK_RUN_ID,
             aws_conn_id=None,
         )
@@ -72,14 +72,16 @@ class TestSageMakerUnifiedStudioNotebookSensor:
 
         sensor = SageMakerUnifiedStudioNotebookSensor(
             task_id="test_task",
-            domain_id=DOMAIN_ID,
-            project_id=PROJECT_ID,
+            domain_identifier=DOMAIN_ID,
+            owning_project_identifier=PROJECT_ID,
             notebook_run_id=NOTEBOOK_RUN_ID,
         )
 
         result = sensor.poke(context=MagicMock(spec=Context))
         assert result is True
-        mock_hook_instance.get_notebook_run.assert_called_once_with(NOTEBOOK_RUN_ID, domain_id=DOMAIN_ID)
+        mock_hook_instance.get_notebook_run.assert_called_once_with(
+            NOTEBOOK_RUN_ID, domain_identifier=DOMAIN_ID
+        )
 
     @pytest.mark.parametrize("status", ["QUEUED", "STARTING", "RUNNING", "STOPPING"])
     @patch(HOOK_PATH, new_callable=PropertyMock)
@@ -90,14 +92,16 @@ class TestSageMakerUnifiedStudioNotebookSensor:
 
         sensor = SageMakerUnifiedStudioNotebookSensor(
             task_id="test_task",
-            domain_id=DOMAIN_ID,
-            project_id=PROJECT_ID,
+            domain_identifier=DOMAIN_ID,
+            owning_project_identifier=PROJECT_ID,
             notebook_run_id=NOTEBOOK_RUN_ID,
         )
 
         result = sensor.poke(context=MagicMock(spec=Context))
         assert result is False
-        mock_hook_instance.get_notebook_run.assert_called_once_with(NOTEBOOK_RUN_ID, domain_id=DOMAIN_ID)
+        mock_hook_instance.get_notebook_run.assert_called_once_with(
+            NOTEBOOK_RUN_ID, domain_identifier=DOMAIN_ID
+        )
 
     @patch(HOOK_PATH, new_callable=PropertyMock)
     def test_poke_failed_state(self, mock_hook_prop):
@@ -107,15 +111,17 @@ class TestSageMakerUnifiedStudioNotebookSensor:
 
         sensor = SageMakerUnifiedStudioNotebookSensor(
             task_id="test_task",
-            domain_id=DOMAIN_ID,
-            project_id=PROJECT_ID,
+            domain_identifier=DOMAIN_ID,
+            owning_project_identifier=PROJECT_ID,
             notebook_run_id=NOTEBOOK_RUN_ID,
         )
 
         with pytest.raises(RuntimeError, match=f"Exiting notebook run {NOTEBOOK_RUN_ID}. State: FAILED"):
             sensor.poke(context=MagicMock(spec=Context))
 
-        mock_hook_instance.get_notebook_run.assert_called_once_with(NOTEBOOK_RUN_ID, domain_id=DOMAIN_ID)
+        mock_hook_instance.get_notebook_run.assert_called_once_with(
+            NOTEBOOK_RUN_ID, domain_identifier=DOMAIN_ID
+        )
 
     @patch(HOOK_PATH, new_callable=PropertyMock)
     def test_poke_stopped_state(self, mock_hook_prop):
@@ -125,8 +131,8 @@ class TestSageMakerUnifiedStudioNotebookSensor:
 
         sensor = SageMakerUnifiedStudioNotebookSensor(
             task_id="test_task",
-            domain_id=DOMAIN_ID,
-            project_id=PROJECT_ID,
+            domain_identifier=DOMAIN_ID,
+            owning_project_identifier=PROJECT_ID,
             notebook_run_id=NOTEBOOK_RUN_ID,
         )
 
@@ -141,8 +147,8 @@ class TestSageMakerUnifiedStudioNotebookSensor:
 
         sensor = SageMakerUnifiedStudioNotebookSensor(
             task_id="test_task",
-            domain_id=DOMAIN_ID,
-            project_id=PROJECT_ID,
+            domain_identifier=DOMAIN_ID,
+            owning_project_identifier=PROJECT_ID,
             notebook_run_id=NOTEBOOK_RUN_ID,
         )
 
@@ -159,8 +165,8 @@ class TestSageMakerUnifiedStudioNotebookSensor:
 
         sensor = SageMakerUnifiedStudioNotebookSensor(
             task_id="test_task",
-            domain_id=DOMAIN_ID,
-            project_id=PROJECT_ID,
+            domain_identifier=DOMAIN_ID,
+            owning_project_identifier=PROJECT_ID,
             notebook_run_id=NOTEBOOK_RUN_ID,
         )
 
@@ -171,8 +177,8 @@ class TestSageMakerUnifiedStudioNotebookSensor:
     def test_execute_calls_poke(self, mock_poke):
         sensor = SageMakerUnifiedStudioNotebookSensor(
             task_id="test_task",
-            domain_id=DOMAIN_ID,
-            project_id=PROJECT_ID,
+            domain_identifier=DOMAIN_ID,
+            owning_project_identifier=PROJECT_ID,
             notebook_run_id=NOTEBOOK_RUN_ID,
         )
 

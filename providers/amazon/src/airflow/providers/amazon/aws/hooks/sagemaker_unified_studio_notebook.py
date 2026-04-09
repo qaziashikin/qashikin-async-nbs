@@ -71,9 +71,9 @@ class SageMakerUnifiedStudioNotebookHook(AwsBaseHook):
 
     def start_notebook_run(
         self,
-        notebook_id: str,
-        domain_id: str,
-        project_id: str,
+        notebook_identifier: str,
+        domain_identifier: str,
+        owning_project_identifier: str,
         client_token: str | None = None,
         notebook_parameters: dict | None = None,
         compute_configuration: dict | None = None,
@@ -83,9 +83,9 @@ class SageMakerUnifiedStudioNotebookHook(AwsBaseHook):
         """
         Start an asynchronous notebook run via the DataZone StartNotebookRun API.
 
-        :param notebook_id: The ID of the notebook to execute.
-        :param domain_id: The ID of the DataZone domain containing the notebook.
-        :param project_id: The ID of the DataZone project containing the notebook.
+        :param notebook_identifier: The ID of the notebook to execute.
+        :param domain_identifier: The ID of the DataZone domain containing the notebook.
+        :param owning_project_identifier: The ID of the DataZone project containing the notebook.
         :param client_token: Idempotency token. Auto-generated if not provided.
         :param notebook_parameters: Parameters to pass to the notebook.
         :param compute_configuration: Compute config (e.g. instance_type).
@@ -94,9 +94,9 @@ class SageMakerUnifiedStudioNotebookHook(AwsBaseHook):
         :return: The StartNotebookRun API response dict.
         """
         params: dict = {
-            "domain_identifier": domain_id,
-            "owning_project_identifier": project_id,
-            "notebook_identifier": notebook_id,
+            "domain_identifier": domain_identifier,
+            "owning_project_identifier": owning_project_identifier,
+            "notebook_identifier": notebook_identifier,
             "client_token": client_token or str(uuid.uuid4()),
         }
 
@@ -109,26 +109,28 @@ class SageMakerUnifiedStudioNotebookHook(AwsBaseHook):
         if workflow_name:
             params["trigger_source"] = {"type": "workflow", "workflow_name": workflow_name}
 
-        self.log.info("Starting notebook run for notebook %s in domain %s", notebook_id, domain_id)
+        self.log.info(
+            "Starting notebook run for notebook %s in domain %s", notebook_identifier, domain_identifier
+        )
         return self.conn.start_notebook_run(**params)
 
-    def get_notebook_run(self, notebook_run_id: str, domain_id: str) -> dict:
+    def get_notebook_run(self, notebook_run_id: str, domain_identifier: str) -> dict:
         """
         Get the status of a notebook run via the DataZone GetNotebookRun API.
 
         :param notebook_run_id: The ID of the notebook run.
-        :param domain_id: The ID of the DataZone domain.
+        :param domain_identifier: The ID of the DataZone domain.
         :return: The GetNotebookRun API response dict.
         """
         return self.conn.get_notebook_run(
-            domain_identifier=domain_id,
+            domain_identifier=domain_identifier,
             identifier=notebook_run_id,
         )
 
     def wait_for_notebook_run(
         self,
         notebook_run_id: str,
-        domain_id: str,
+        domain_identifier: str,
         waiter_delay: int = 10,
         timeout_configuration: dict | None = None,
     ) -> dict:
@@ -136,7 +138,7 @@ class SageMakerUnifiedStudioNotebookHook(AwsBaseHook):
         Poll GetNotebookRun until the run reaches a terminal state.
 
         :param notebook_run_id: The ID of the notebook run to monitor.
-        :param domain_id: The ID of the DataZone domain.
+        :param domain_identifier: The ID of the DataZone domain.
         :param waiter_delay: Interval in seconds to poll the notebook run status.
         :param timeout_configuration: Timeout settings for the notebook execution.
             When provided, the maximum number of poll attempts is derived from
@@ -149,7 +151,7 @@ class SageMakerUnifiedStudioNotebookHook(AwsBaseHook):
 
         for _attempt in range(waiter_max_attempts):
             time.sleep(waiter_delay)
-            response = self.get_notebook_run(notebook_run_id, domain_id=domain_id)
+            response = self.get_notebook_run(notebook_run_id, domain_identifier=domain_identifier)
             status = response.get("status", "")
             error_message = response.get("errorMessage", "")
 

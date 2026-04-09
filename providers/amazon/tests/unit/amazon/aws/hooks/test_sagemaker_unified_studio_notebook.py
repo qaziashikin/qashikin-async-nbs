@@ -57,7 +57,7 @@ class TestSageMakerUnifiedStudioNotebookHook:
         self.mock_client.start_notebook_run.return_value = {"notebookRunId": NOTEBOOK_RUN_ID}
 
         result = self.hook.start_notebook_run(
-            notebook_id=NOTEBOOK_ID, domain_id=DOMAIN_ID, project_id=PROJECT_ID
+            notebook_identifier=NOTEBOOK_ID, domain_identifier=DOMAIN_ID, owning_project_identifier=PROJECT_ID
         )
 
         assert result == {"notebookRunId": NOTEBOOK_RUN_ID}
@@ -77,9 +77,9 @@ class TestSageMakerUnifiedStudioNotebookHook:
         self.mock_client.start_notebook_run.return_value = {"notebookRunId": NOTEBOOK_RUN_ID}
 
         result = self.hook.start_notebook_run(
-            notebook_id=NOTEBOOK_ID,
-            domain_id=DOMAIN_ID,
-            project_id=PROJECT_ID,
+            notebook_identifier=NOTEBOOK_ID,
+            domain_identifier=DOMAIN_ID,
+            owning_project_identifier=PROJECT_ID,
             client_token="my-token",
             notebook_parameters={"param1": "value1"},
             compute_configuration={"instance_type": "ml.m5.large"},
@@ -99,7 +99,9 @@ class TestSageMakerUnifiedStudioNotebookHook:
         """client_token is auto-generated as a UUID when not provided."""
         self.mock_client.start_notebook_run.return_value = {}
 
-        self.hook.start_notebook_run(notebook_id=NOTEBOOK_ID, domain_id=DOMAIN_ID, project_id=PROJECT_ID)
+        self.hook.start_notebook_run(
+            notebook_identifier=NOTEBOOK_ID, domain_identifier=DOMAIN_ID, owning_project_identifier=PROJECT_ID
+        )
 
         call_kwargs = self.mock_client.start_notebook_run.call_args[1]
         token = call_kwargs["client_token"]
@@ -114,7 +116,7 @@ class TestSageMakerUnifiedStudioNotebookHook:
         expected = {"status": "SUCCEEDED", "notebookRunId": NOTEBOOK_RUN_ID}
         self.mock_client.get_notebook_run.return_value = expected
 
-        result = self.hook.get_notebook_run(NOTEBOOK_RUN_ID, domain_id=DOMAIN_ID)
+        result = self.hook.get_notebook_run(NOTEBOOK_RUN_ID, domain_identifier=DOMAIN_ID)
 
         assert result == expected
         self.mock_client.get_notebook_run.assert_called_once_with(
@@ -162,7 +164,7 @@ class TestSageMakerUnifiedStudioNotebookHook:
         """Run completes on first poll."""
         self.mock_client.get_notebook_run.return_value = {"status": "SUCCEEDED"}
 
-        result = self.hook.wait_for_notebook_run(NOTEBOOK_RUN_ID, domain_id=DOMAIN_ID, waiter_delay=5)
+        result = self.hook.wait_for_notebook_run(NOTEBOOK_RUN_ID, domain_identifier=DOMAIN_ID, waiter_delay=5)
 
         assert result == {"State": "SUCCEEDED", "NotebookRunId": NOTEBOOK_RUN_ID}
         mock_sleep.assert_called_once_with(5)
@@ -177,7 +179,7 @@ class TestSageMakerUnifiedStudioNotebookHook:
             {"status": "SUCCEEDED"},
         ]
 
-        result = self.hook.wait_for_notebook_run(NOTEBOOK_RUN_ID, domain_id=DOMAIN_ID, waiter_delay=5)
+        result = self.hook.wait_for_notebook_run(NOTEBOOK_RUN_ID, domain_identifier=DOMAIN_ID, waiter_delay=5)
 
         assert result == {"State": "SUCCEEDED", "NotebookRunId": NOTEBOOK_RUN_ID}
         assert mock_sleep.call_count == 4
@@ -191,7 +193,7 @@ class TestSageMakerUnifiedStudioNotebookHook:
         }
 
         with pytest.raises(RuntimeError, match="Notebook crashed"):
-            self.hook.wait_for_notebook_run(NOTEBOOK_RUN_ID, domain_id=DOMAIN_ID, waiter_delay=5)
+            self.hook.wait_for_notebook_run(NOTEBOOK_RUN_ID, domain_identifier=DOMAIN_ID, waiter_delay=5)
 
     @patch(f"{HOOK_MODULE}.time.sleep")
     def test_wait_for_notebook_run_timeout(self, mock_sleep):
@@ -201,7 +203,7 @@ class TestSageMakerUnifiedStudioNotebookHook:
         with pytest.raises(RuntimeError, match="Execution timed out"):
             self.hook.wait_for_notebook_run(
                 NOTEBOOK_RUN_ID,
-                domain_id=DOMAIN_ID,
+                domain_identifier=DOMAIN_ID,
                 waiter_delay=5,
                 timeout_configuration={"run_timeout_in_minutes": 1},
             )
@@ -213,7 +215,9 @@ class TestSageMakerUnifiedStudioNotebookHook:
         """Default waiter_max_attempts derived from 12-hour timeout."""
         self.mock_client.get_notebook_run.return_value = {"status": "SUCCEEDED"}
 
-        result = self.hook.wait_for_notebook_run(NOTEBOOK_RUN_ID, domain_id=DOMAIN_ID, waiter_delay=10)
+        result = self.hook.wait_for_notebook_run(
+            NOTEBOOK_RUN_ID, domain_identifier=DOMAIN_ID, waiter_delay=10
+        )
 
         assert result == {"State": "SUCCEEDED", "NotebookRunId": NOTEBOOK_RUN_ID}
 
@@ -223,7 +227,7 @@ class TestSageMakerUnifiedStudioNotebookHook:
         self.mock_client.get_notebook_run.return_value = {"status": "SUCCEEDED"}
 
         result = self.hook.wait_for_notebook_run(
-            NOTEBOOK_RUN_ID, domain_id=DOMAIN_ID, waiter_delay=10, timeout_configuration={}
+            NOTEBOOK_RUN_ID, domain_identifier=DOMAIN_ID, waiter_delay=10, timeout_configuration={}
         )
 
         assert result == {"State": "SUCCEEDED", "NotebookRunId": NOTEBOOK_RUN_ID}

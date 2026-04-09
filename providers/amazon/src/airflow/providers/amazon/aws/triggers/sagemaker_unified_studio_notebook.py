@@ -40,8 +40,8 @@ class SageMakerUnifiedStudioNotebookTrigger(AwsBaseWaiterTrigger):
     ``waiters/datazone.json`` to poll the DataZone ``GetNotebookRun`` API.
 
     :param notebook_run_id: The ID of the notebook run to monitor.
-    :param domain_id: The ID of the DataZone domain.
-    :param project_id: The ID of the DataZone project.
+    :param domain_identifier: The ID of the DataZone domain.
+    :param owning_project_identifier: The ID of the DataZone project.
     :param waiter_delay: Interval in seconds between polls (default: 10).
     :param waiter_max_attempts: Maximum number of poll attempts.
     :param aws_conn_id: The Airflow connection used for AWS credentials.
@@ -54,8 +54,8 @@ class SageMakerUnifiedStudioNotebookTrigger(AwsBaseWaiterTrigger):
     def __init__(
         self,
         notebook_run_id: str,
-        domain_id: str,
-        project_id: str,
+        domain_identifier: str,
+        owning_project_identifier: str,
         waiter_delay: int = 10,
         timeout_configuration: dict | None = None,
         aws_conn_id: str | None = None,
@@ -65,21 +65,21 @@ class SageMakerUnifiedStudioNotebookTrigger(AwsBaseWaiterTrigger):
         waiter_max_attempts = int(run_timeout * 60 / waiter_delay)
 
         self.notebook_run_id = notebook_run_id
-        self.domain_id = domain_id
-        self.project_id = project_id
+        self.domain_identifier = domain_identifier
+        self.owning_project_identifier = owning_project_identifier
         self.timeout_configuration = timeout_configuration
 
         super().__init__(
             serialized_fields={
                 "notebook_run_id": notebook_run_id,
-                "domain_id": domain_id,
-                "project_id": project_id,
+                "domain_identifier": domain_identifier,
+                "owning_project_identifier": owning_project_identifier,
                 "timeout_configuration": timeout_configuration,
             },
             waiter_name="notebook_run_complete",
             waiter_args={
-                "domain_id": domain_id,
-                "notebook_run_id": notebook_run_id,
+                "domain_identifier": domain_identifier,
+                "identifier": notebook_run_id,
             },
             failure_message=f"Notebook run {notebook_run_id} failed",
             status_message=f"Notebook run {notebook_run_id} is currently",

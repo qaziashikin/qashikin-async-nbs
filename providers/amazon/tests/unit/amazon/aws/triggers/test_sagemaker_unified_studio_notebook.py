@@ -35,8 +35,8 @@ class TestSageMakerUnifiedStudioNotebookTrigger:
     def _create_trigger(self, **kwargs):
         defaults = {
             "notebook_run_id": NOTEBOOK_RUN_ID,
-            "domain_id": DOMAIN_ID,
-            "project_id": PROJECT_ID,
+            "domain_identifier": DOMAIN_ID,
+            "owning_project_identifier": PROJECT_ID,
             "waiter_delay": 1,
         }
         defaults.update(kwargs)
@@ -53,8 +53,8 @@ class TestSageMakerUnifiedStudioNotebookTrigger:
         classpath, kwargs = trigger.serialize()
         assert classpath == f"{MODULE_PATH}.SageMakerUnifiedStudioNotebookTrigger"
         assert kwargs["notebook_run_id"] == NOTEBOOK_RUN_ID
-        assert kwargs["domain_id"] == DOMAIN_ID
-        assert kwargs["project_id"] == PROJECT_ID
+        assert kwargs["domain_identifier"] == DOMAIN_ID
+        assert kwargs["owning_project_identifier"] == PROJECT_ID
         assert kwargs["waiter_delay"] == 10
         assert kwargs["timeout_configuration"] == {"run_timeout_in_minutes": 60}
         assert kwargs["waiter_max_attempts"] == int(60 * 60 / 10)
@@ -82,8 +82,8 @@ class TestSageMakerUnifiedStudioNotebookTrigger:
     def test_waiter_args(self):
         trigger = self._create_trigger()
         assert trigger.waiter_args == {
-            "domain_id": DOMAIN_ID,
-            "notebook_run_id": NOTEBOOK_RUN_ID,
+            "domain_identifier": DOMAIN_ID,
+            "identifier": NOTEBOOK_RUN_ID,
         }
 
     def test_return_value(self):

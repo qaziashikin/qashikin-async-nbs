@@ -60,18 +60,18 @@ class SageMakerUnifiedStudioNotebookOperator(AwsBaseOperator[SageMakerUnifiedStu
 
         notebook_operator = SageMakerUnifiedStudioNotebookOperator(
             task_id="run_notebook",
-            notebook_id="nb-1234567890",
-            domain_id="dzd_example",
-            project_id="proj_example",
+            notebook_identifier="nb-1234567890",
+            domain_identifier="dzd_example",
+            owning_project_identifier="proj_example",
             notebook_parameters={"param1": "value1"},
             compute_configuration={"instance_type": "ml.m5.large"},
             timeout_configuration={"run_timeout_in_minutes": 1440},
         )
 
     :param task_id: A unique, meaningful id for the task.
-    :param notebook_id: The ID of the notebook to execute.
-    :param domain_id: The ID of the SageMaker Unified Studio domain containing the notebook.
-    :param project_id: The ID of the SageMaker Unified Studio project containing the notebook.
+    :param notebook_identifier: The ID of the notebook to execute.
+    :param domain_identifier: The ID of the SageMaker Unified Studio domain containing the notebook.
+    :param owning_project_identifier: The ID of the SageMaker Unified Studio project containing the notebook.
     :param client_token: Optional idempotency token. Auto-generated if not provided.
     :param notebook_parameters: Optional dict of parameters to pass to the notebook.
     :param compute_configuration: Optional compute config.
@@ -96,9 +96,9 @@ class SageMakerUnifiedStudioNotebookOperator(AwsBaseOperator[SageMakerUnifiedStu
     def __init__(
         self,
         *,
-        notebook_id: str,
-        domain_id: str,
-        project_id: str,
+        notebook_identifier: str,
+        domain_identifier: str,
+        owning_project_identifier: str,
         client_token: str | None = None,
         notebook_parameters: dict | None = None,
         compute_configuration: dict | None = None,
@@ -109,9 +109,9 @@ class SageMakerUnifiedStudioNotebookOperator(AwsBaseOperator[SageMakerUnifiedStu
         **kwargs,
     ):
         super().__init__(**kwargs)
-        self.notebook_id = notebook_id
-        self.domain_id = domain_id
-        self.project_id = project_id
+        self.notebook_identifier = notebook_identifier
+        self.domain_identifier = domain_identifier
+        self.owning_project_identifier = owning_project_identifier
         self.client_token = client_token
         self.notebook_parameters = notebook_parameters
         self.compute_configuration = compute_configuration
@@ -123,9 +123,9 @@ class SageMakerUnifiedStudioNotebookOperator(AwsBaseOperator[SageMakerUnifiedStu
     def execute(self, context: Context):
         workflow_name = context["dag"].dag_id  # Workflow name is the same as the dag_id
         response = self.hook.start_notebook_run(
-            notebook_id=self.notebook_id,
-            domain_id=self.domain_id,
-            project_id=self.project_id,
+            notebook_identifier=self.notebook_identifier,
+            domain_identifier=self.domain_identifier,
+            owning_project_identifier=self.owning_project_identifier,
             client_token=self.client_token,
             notebook_parameters=self.notebook_parameters,
             compute_configuration=self.compute_configuration,
@@ -133,14 +133,14 @@ class SageMakerUnifiedStudioNotebookOperator(AwsBaseOperator[SageMakerUnifiedStu
             workflow_name=workflow_name,
         )
         notebook_run_id = response["notebook_run_id"]
-        self.log.info("Started notebook run %s for notebook %s", notebook_run_id, self.notebook_id)
+        self.log.info("Started notebook run %s for notebook %s", notebook_run_id, self.notebook_identifier)
 
         if self.deferrable:
             self.defer(
                 trigger=SageMakerUnifiedStudioNotebookTrigger(
                     notebook_run_id=notebook_run_id,
-                    domain_id=self.domain_id,
-                    project_id=self.project_id,
+                    domain_identifier=self.domain_identifier,
+                    owning_project_identifier=self.owning_project_identifier,
                     waiter_delay=self.waiter_delay,
                     timeout_configuration=self.timeout_configuration,
                 ),
@@ -149,7 +149,7 @@ class SageMakerUnifiedStudioNotebookOperator(AwsBaseOperator[SageMakerUnifiedStu
         elif self.wait_for_completion:
             self.hook.wait_for_notebook_run(
                 notebook_run_id,
-                domain_id=self.domain_id,
+                domain_identifier=self.domain_identifier,
                 waiter_delay=self.waiter_delay,
                 timeout_configuration=self.timeout_configuration,
             )
@@ -163,5 +163,5 @@ class SageMakerUnifiedStudioNotebookOperator(AwsBaseOperator[SageMakerUnifiedStu
             raise RuntimeError(f"Notebook run did not succeed: {validated_event}")
 
         notebook_run_id = validated_event["notebook_run_id"]
-        self.log.info("Notebook run %s completed for notebook %s", notebook_run_id, self.notebook_id)
+        self.log.info("Notebook run %s completed for notebook %s", notebook_run_id, self.notebook_identifier)
         return notebook_run_id

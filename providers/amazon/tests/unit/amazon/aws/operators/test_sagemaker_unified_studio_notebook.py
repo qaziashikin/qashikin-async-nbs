@@ -52,13 +52,13 @@ class TestSageMakerUnifiedStudioNotebookOperator:
     def test_init_defaults(self):
         op = SageMakerUnifiedStudioNotebookOperator(
             task_id=TASK_ID,
-            notebook_id=NOTEBOOK_ID,
-            domain_id=DOMAIN_ID,
-            project_id=PROJECT_ID,
+            notebook_identifier=NOTEBOOK_ID,
+            domain_identifier=DOMAIN_ID,
+            owning_project_identifier=PROJECT_ID,
         )
-        assert op.notebook_id == NOTEBOOK_ID
-        assert op.domain_id == DOMAIN_ID
-        assert op.project_id == PROJECT_ID
+        assert op.notebook_identifier == NOTEBOOK_ID
+        assert op.domain_identifier == DOMAIN_ID
+        assert op.owning_project_identifier == PROJECT_ID
         assert op.client_token is None
         assert op.notebook_parameters is None
         assert op.compute_configuration is None
@@ -70,9 +70,9 @@ class TestSageMakerUnifiedStudioNotebookOperator:
     def test_init_all_params(self):
         op = SageMakerUnifiedStudioNotebookOperator(
             task_id=TASK_ID,
-            notebook_id=NOTEBOOK_ID,
-            domain_id=DOMAIN_ID,
-            project_id=PROJECT_ID,
+            notebook_identifier=NOTEBOOK_ID,
+            domain_identifier=DOMAIN_ID,
+            owning_project_identifier=PROJECT_ID,
             client_token="tok-123",
             notebook_parameters={"key": "val"},
             compute_configuration={"instance_type": "ml.m5.large"},
@@ -94,9 +94,9 @@ class TestSageMakerUnifiedStudioNotebookOperator:
     def test_hook_property(self):
         op = SageMakerUnifiedStudioNotebookOperator(
             task_id=TASK_ID,
-            notebook_id=NOTEBOOK_ID,
-            domain_id=DOMAIN_ID,
-            project_id=PROJECT_ID,
+            notebook_identifier=NOTEBOOK_ID,
+            domain_identifier=DOMAIN_ID,
+            owning_project_identifier=PROJECT_ID,
             waiter_delay=15,
             timeout_configuration={"run_timeout_in_minutes": 120},
             aws_conn_id=None,
@@ -122,9 +122,9 @@ class TestSageMakerUnifiedStudioNotebookOperator:
 
         op = SageMakerUnifiedStudioNotebookOperator(
             task_id=TASK_ID,
-            notebook_id=NOTEBOOK_ID,
-            domain_id=DOMAIN_ID,
-            project_id=PROJECT_ID,
+            notebook_identifier=NOTEBOOK_ID,
+            domain_identifier=DOMAIN_ID,
+            owning_project_identifier=PROJECT_ID,
             client_token="my-token",
             notebook_parameters={"p1": "v1"},
             compute_configuration={"instance_type": "ml.m5.large"},
@@ -135,9 +135,9 @@ class TestSageMakerUnifiedStudioNotebookOperator:
 
         assert result == NOTEBOOK_RUN_ID
         mock_hook.start_notebook_run.assert_called_once_with(
-            notebook_id=NOTEBOOK_ID,
-            domain_id=DOMAIN_ID,
-            project_id=PROJECT_ID,
+            notebook_identifier=NOTEBOOK_ID,
+            domain_identifier=DOMAIN_ID,
+            owning_project_identifier=PROJECT_ID,
             client_token="my-token",
             notebook_parameters={"p1": "v1"},
             compute_configuration={"instance_type": "ml.m5.large"},
@@ -146,7 +146,7 @@ class TestSageMakerUnifiedStudioNotebookOperator:
         )
         mock_hook.wait_for_notebook_run.assert_called_once_with(
             NOTEBOOK_RUN_ID,
-            domain_id=DOMAIN_ID,
+            domain_identifier=DOMAIN_ID,
             waiter_delay=10,
             timeout_configuration={"run_timeout_in_minutes": 60},
         )
@@ -160,9 +160,9 @@ class TestSageMakerUnifiedStudioNotebookOperator:
 
         op = SageMakerUnifiedStudioNotebookOperator(
             task_id=TASK_ID,
-            notebook_id=NOTEBOOK_ID,
-            domain_id=DOMAIN_ID,
-            project_id=PROJECT_ID,
+            notebook_identifier=NOTEBOOK_ID,
+            domain_identifier=DOMAIN_ID,
+            owning_project_identifier=PROJECT_ID,
         )
         op.execute(_make_context(dag_id="my_custom_dag"))
 
@@ -179,9 +179,9 @@ class TestSageMakerUnifiedStudioNotebookOperator:
 
         op = SageMakerUnifiedStudioNotebookOperator(
             task_id=TASK_ID,
-            notebook_id=NOTEBOOK_ID,
-            domain_id=DOMAIN_ID,
-            project_id=PROJECT_ID,
+            notebook_identifier=NOTEBOOK_ID,
+            domain_identifier=DOMAIN_ID,
+            owning_project_identifier=PROJECT_ID,
         )
         with pytest.raises(RuntimeError, match="API unavailable"):
             op.execute(_make_context())
@@ -195,9 +195,9 @@ class TestSageMakerUnifiedStudioNotebookOperator:
 
         op = SageMakerUnifiedStudioNotebookOperator(
             task_id=TASK_ID,
-            notebook_id=NOTEBOOK_ID,
-            domain_id=DOMAIN_ID,
-            project_id=PROJECT_ID,
+            notebook_identifier=NOTEBOOK_ID,
+            domain_identifier=DOMAIN_ID,
+            owning_project_identifier=PROJECT_ID,
         )
         with pytest.raises(RuntimeError, match="Notebook crashed"):
             op.execute(_make_context())
@@ -214,9 +214,9 @@ class TestSageMakerUnifiedStudioNotebookOperator:
 
         op = SageMakerUnifiedStudioNotebookOperator(
             task_id=TASK_ID,
-            notebook_id=NOTEBOOK_ID,
-            domain_id=DOMAIN_ID,
-            project_id=PROJECT_ID,
+            notebook_identifier=NOTEBOOK_ID,
+            domain_identifier=DOMAIN_ID,
+            owning_project_identifier=PROJECT_ID,
         )
         result = op.execute(_make_context())
 
@@ -238,9 +238,9 @@ class TestSageMakerUnifiedStudioNotebookOperator:
 
         op = SageMakerUnifiedStudioNotebookOperator(
             task_id=TASK_ID,
-            notebook_id=NOTEBOOK_ID,
-            domain_id=DOMAIN_ID,
-            project_id=PROJECT_ID,
+            notebook_identifier=NOTEBOOK_ID,
+            domain_identifier=DOMAIN_ID,
+            owning_project_identifier=PROJECT_ID,
             wait_for_completion=False,
         )
         result = op.execute(_make_context())
@@ -260,9 +260,9 @@ class TestSageMakerUnifiedStudioNotebookOperator:
 
         op = SageMakerUnifiedStudioNotebookOperator(
             task_id=TASK_ID,
-            notebook_id=NOTEBOOK_ID,
-            domain_id=DOMAIN_ID,
-            project_id=PROJECT_ID,
+            notebook_identifier=NOTEBOOK_ID,
+            domain_identifier=DOMAIN_ID,
+            owning_project_identifier=PROJECT_ID,
             deferrable=True,
             waiter_delay=20,
             timeout_configuration={"run_timeout_in_minutes": 120},
@@ -274,8 +274,8 @@ class TestSageMakerUnifiedStudioNotebookOperator:
         trigger = exc_info.value.trigger
         assert isinstance(trigger, SageMakerUnifiedStudioNotebookTrigger)
         assert trigger.notebook_run_id == NOTEBOOK_RUN_ID
-        assert trigger.domain_id == DOMAIN_ID
-        assert trigger.project_id == PROJECT_ID
+        assert trigger.domain_identifier == DOMAIN_ID
+        assert trigger.owning_project_identifier == PROJECT_ID
         assert trigger.waiter_delay == 20
         assert trigger.timeout_configuration == {"run_timeout_in_minutes": 120}
         assert exc_info.value.method_name == "execute_complete"
@@ -290,9 +290,9 @@ class TestSageMakerUnifiedStudioNotebookOperator:
 
         op = SageMakerUnifiedStudioNotebookOperator(
             task_id=TASK_ID,
-            notebook_id=NOTEBOOK_ID,
-            domain_id=DOMAIN_ID,
-            project_id=PROJECT_ID,
+            notebook_identifier=NOTEBOOK_ID,
+            domain_identifier=DOMAIN_ID,
+            owning_project_identifier=PROJECT_ID,
             deferrable=True,
             wait_for_completion=False,
         )
@@ -307,9 +307,9 @@ class TestSageMakerUnifiedStudioNotebookOperator:
     def test_execute_complete_success(self):
         op = SageMakerUnifiedStudioNotebookOperator(
             task_id=TASK_ID,
-            notebook_id=NOTEBOOK_ID,
-            domain_id=DOMAIN_ID,
-            project_id=PROJECT_ID,
+            notebook_identifier=NOTEBOOK_ID,
+            domain_identifier=DOMAIN_ID,
+            owning_project_identifier=PROJECT_ID,
         )
         event = {"status": "success", "notebook_run_id": NOTEBOOK_RUN_ID}
         result = op.execute_complete(context=_make_context(), event=event)
@@ -318,9 +318,9 @@ class TestSageMakerUnifiedStudioNotebookOperator:
     def test_execute_complete_failure(self):
         op = SageMakerUnifiedStudioNotebookOperator(
             task_id=TASK_ID,
-            notebook_id=NOTEBOOK_ID,
-            domain_id=DOMAIN_ID,
-            project_id=PROJECT_ID,
+            notebook_identifier=NOTEBOOK_ID,
+            domain_identifier=DOMAIN_ID,
+            owning_project_identifier=PROJECT_ID,
         )
         event = {"status": "FAILED", "notebook_run_id": NOTEBOOK_RUN_ID, "message": "OOM"}
         with pytest.raises(RuntimeError, match="Notebook run did not succeed"):
@@ -329,9 +329,9 @@ class TestSageMakerUnifiedStudioNotebookOperator:
     def test_execute_complete_none_event(self):
         op = SageMakerUnifiedStudioNotebookOperator(
             task_id=TASK_ID,
-            notebook_id=NOTEBOOK_ID,
-            domain_id=DOMAIN_ID,
-            project_id=PROJECT_ID,
+            notebook_identifier=NOTEBOOK_ID,
+            domain_identifier=DOMAIN_ID,
+            owning_project_identifier=PROJECT_ID,
         )
         with pytest.raises(AirflowException, match="event is None"):
             op.execute_complete(context=_make_context(), event=None)
