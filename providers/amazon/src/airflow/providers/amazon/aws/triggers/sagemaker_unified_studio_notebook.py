@@ -19,6 +19,7 @@
 
 from __future__ import annotations
 
+import math
 from typing import TYPE_CHECKING
 
 from airflow.providers.amazon.aws.hooks.sagemaker_unified_studio_notebook import (
@@ -61,8 +62,10 @@ class SageMakerUnifiedStudioNotebookTrigger(AwsBaseWaiterTrigger):
         aws_conn_id: str | None = None,
         **kwargs,
     ):
+        if waiter_delay <= 0:
+            raise ValueError("waiter_delay must be a positive integer")
         run_timeout = (timeout_configuration or {}).get("run_timeout_in_minutes", TWELVE_HOURS_IN_MINUTES)
-        waiter_max_attempts = int(run_timeout * 60 / waiter_delay)
+        waiter_max_attempts = max(1, math.ceil(run_timeout * 60 / waiter_delay))
 
         self.notebook_run_id = notebook_run_id
         self.domain_identifier = domain_identifier

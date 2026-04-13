@@ -124,38 +124,38 @@ class TestSageMakerUnifiedStudioNotebookHook:
             identifier=NOTEBOOK_RUN_ID,
         )
 
-    # --- _handle_state ---
+    # --- _handle_status ---
 
-    def test_handle_state_in_progress(self):
-        """In-progress states return None."""
+    def test_handle_status_in_progress(self):
+        """In-progress statuses return None."""
         for status in ("QUEUED", "STARTING", "RUNNING", "STOPPING"):
-            result = self.hook._handle_state(NOTEBOOK_RUN_ID, status, "")
+            result = self.hook._handle_status(NOTEBOOK_RUN_ID, status, "")
             assert result is None
 
-    def test_handle_state_succeeded(self):
-        """SUCCEEDED state returns success dict."""
-        result = self.hook._handle_state(NOTEBOOK_RUN_ID, "SUCCEEDED", "")
-        assert result == {"State": "SUCCEEDED", "NotebookRunId": NOTEBOOK_RUN_ID}
+    def test_handle_status_succeeded(self):
+        """SUCCEEDED status returns success dict."""
+        result = self.hook._handle_status(NOTEBOOK_RUN_ID, "SUCCEEDED", "")
+        assert result == {"Status": "SUCCEEDED", "NotebookRunId": NOTEBOOK_RUN_ID}
 
-    def test_handle_state_stopped(self):
-        """STOPPED is a finished state and returns success dict."""
-        result = self.hook._handle_state(NOTEBOOK_RUN_ID, "STOPPED", "")
-        assert result == {"State": "STOPPED", "NotebookRunId": NOTEBOOK_RUN_ID}
+    def test_handle_status_stopped(self):
+        """STOPPED is a terminal non-success status and raises RuntimeError."""
+        with pytest.raises(RuntimeError):
+            self.hook._handle_status(NOTEBOOK_RUN_ID, "STOPPED", "")
 
-    def test_handle_state_failed_with_error_message(self):
-        """FAILED state with error message raises RuntimeError with that message."""
+    def test_handle_status_failed_with_error_message(self):
+        """FAILED status with error message raises RuntimeError with that message."""
         with pytest.raises(RuntimeError, match="Something went wrong"):
-            self.hook._handle_state(NOTEBOOK_RUN_ID, "FAILED", "Something went wrong")
+            self.hook._handle_status(NOTEBOOK_RUN_ID, "FAILED", "Something went wrong")
 
-    def test_handle_state_failed_empty_error_message(self):
-        """FAILED state with empty error message raises RuntimeError with status info."""
-        with pytest.raises(RuntimeError, match=f"Exiting notebook run {NOTEBOOK_RUN_ID}. State: FAILED"):
-            self.hook._handle_state(NOTEBOOK_RUN_ID, "FAILED", "")
+    def test_handle_status_failed_empty_error_message(self):
+        """FAILED status with empty error message raises RuntimeError with status info."""
+        with pytest.raises(RuntimeError, match=f"Exiting notebook run {NOTEBOOK_RUN_ID}. Status: FAILED"):
+            self.hook._handle_status(NOTEBOOK_RUN_ID, "FAILED", "")
 
-    def test_handle_state_unexpected_status(self):
+    def test_handle_status_unexpected(self):
         """Unexpected status raises RuntimeError."""
-        with pytest.raises(RuntimeError, match=f"Exiting notebook run {NOTEBOOK_RUN_ID}. State: UNKNOWN"):
-            self.hook._handle_state(NOTEBOOK_RUN_ID, "UNKNOWN", "")
+        with pytest.raises(RuntimeError, match=f"Exiting notebook run {NOTEBOOK_RUN_ID}. Status: UNKNOWN"):
+            self.hook._handle_status(NOTEBOOK_RUN_ID, "UNKNOWN", "")
 
     # --- wait_for_notebook_run ---
 
@@ -166,8 +166,8 @@ class TestSageMakerUnifiedStudioNotebookHook:
 
         result = self.hook.wait_for_notebook_run(NOTEBOOK_RUN_ID, domain_identifier=DOMAIN_ID, waiter_delay=5)
 
-        assert result == {"State": "SUCCEEDED", "NotebookRunId": NOTEBOOK_RUN_ID}
-        mock_sleep.assert_called_once_with(5)
+        assert result == {"Status": "SUCCEEDED", "NotebookRunId": NOTEBOOK_RUN_ID}
+        mock_sleep.assert_not_called()
 
     @patch(f"{HOOK_MODULE}.time.sleep")
     def test_wait_for_notebook_run_polls_then_succeeds(self, mock_sleep):
@@ -181,8 +181,8 @@ class TestSageMakerUnifiedStudioNotebookHook:
 
         result = self.hook.wait_for_notebook_run(NOTEBOOK_RUN_ID, domain_identifier=DOMAIN_ID, waiter_delay=5)
 
-        assert result == {"State": "SUCCEEDED", "NotebookRunId": NOTEBOOK_RUN_ID}
-        assert mock_sleep.call_count == 4
+        assert result == {"Status": "SUCCEEDED", "NotebookRunId": NOTEBOOK_RUN_ID}
+        assert mock_sleep.call_count == 3
 
     @patch(f"{HOOK_MODULE}.time.sleep")
     def test_wait_for_notebook_run_fails(self, mock_sleep):
@@ -219,7 +219,7 @@ class TestSageMakerUnifiedStudioNotebookHook:
             NOTEBOOK_RUN_ID, domain_identifier=DOMAIN_ID, waiter_delay=10
         )
 
-        assert result == {"State": "SUCCEEDED", "NotebookRunId": NOTEBOOK_RUN_ID}
+        assert result == {"Status": "SUCCEEDED", "NotebookRunId": NOTEBOOK_RUN_ID}
 
     @patch(f"{HOOK_MODULE}.time.sleep")
     def test_wait_for_notebook_run_empty_timeout_configuration(self, mock_sleep):
@@ -230,7 +230,7 @@ class TestSageMakerUnifiedStudioNotebookHook:
             NOTEBOOK_RUN_ID, domain_identifier=DOMAIN_ID, waiter_delay=10, timeout_configuration={}
         )
 
-        assert result == {"State": "SUCCEEDED", "NotebookRunId": NOTEBOOK_RUN_ID}
+        assert result == {"Status": "SUCCEEDED", "NotebookRunId": NOTEBOOK_RUN_ID}
 
     # --- _validate_api_availability ---
 
@@ -256,3 +256,25 @@ class TestSageMakerUnifiedStudioNotebookHook:
         """No exception when both required APIs are present on the client."""
         # self.mock_client is a MagicMock which has all attributes by default
         self.hook._validate_api_availability()  # Should not raise
+
+    def test_start_notebook_run_raises_when_api_unavailable(self):
+        """start_notebook_run fails fast when the API is not available on the client."""
+        mock_client = MagicMock(spec=[])
+        with patch.object(SageMakerUnifiedStudioNotebookHook, "conn", new_callable=PropertyMock) as mock_conn:
+            mock_conn.return_value = mock_client
+            hook = SageMakerUnifiedStudioNotebookHook(aws_conn_id=None)
+            with pytest.raises(RuntimeError, match="not available"):
+                hook.start_notebook_run(
+                    notebook_identifier=NOTEBOOK_ID,
+                    domain_identifier=DOMAIN_ID,
+                    owning_project_identifier=PROJECT_ID,
+                )
+
+    def test_get_notebook_run_raises_when_api_unavailable(self):
+        """get_notebook_run fails fast when the API is not available on the client."""
+        mock_client = MagicMock(spec=[])
+        with patch.object(SageMakerUnifiedStudioNotebookHook, "conn", new_callable=PropertyMock) as mock_conn:
+            mock_conn.return_value = mock_client
+            hook = SageMakerUnifiedStudioNotebookHook(aws_conn_id=None)
+            with pytest.raises(RuntimeError, match="not available"):
+                hook.get_notebook_run(NOTEBOOK_RUN_ID, domain_identifier=DOMAIN_ID)

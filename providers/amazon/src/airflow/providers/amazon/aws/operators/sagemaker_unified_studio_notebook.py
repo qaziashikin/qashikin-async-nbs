@@ -132,7 +132,7 @@ class SageMakerUnifiedStudioNotebookOperator(AwsBaseOperator[SageMakerUnifiedStu
             timeout_configuration=self.timeout_configuration,
             workflow_name=workflow_name,
         )
-        notebook_run_id = response["notebook_run_id"]
+        notebook_run_id = response["id"]
         self.log.info("Started notebook run %s for notebook %s", notebook_run_id, self.notebook_identifier)
 
         if self.deferrable:

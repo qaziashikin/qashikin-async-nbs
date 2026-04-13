@@ -114,9 +114,9 @@ class TestSageMakerUnifiedStudioNotebookOperator:
     def test_execute_success(self, mock_hook_prop):
         mock_hook = MagicMock()
         mock_hook_prop.return_value = mock_hook
-        mock_hook.start_notebook_run.return_value = {"notebook_run_id": NOTEBOOK_RUN_ID}
+        mock_hook.start_notebook_run.return_value = {"id": NOTEBOOK_RUN_ID}
         mock_hook.wait_for_notebook_run.return_value = {
-            "State": "SUCCEEDED",
+            "Status": "SUCCEEDED",
             "NotebookRunId": NOTEBOOK_RUN_ID,
         }
 
@@ -155,7 +155,7 @@ class TestSageMakerUnifiedStudioNotebookOperator:
     def test_execute_passes_dag_id_as_workflow_name(self, mock_hook_prop):
         mock_hook = MagicMock()
         mock_hook_prop.return_value = mock_hook
-        mock_hook.start_notebook_run.return_value = {"notebook_run_id": NOTEBOOK_RUN_ID}
+        mock_hook.start_notebook_run.return_value = {"id": NOTEBOOK_RUN_ID}
         mock_hook.wait_for_notebook_run.return_value = {}
 
         op = SageMakerUnifiedStudioNotebookOperator(
@@ -190,7 +190,7 @@ class TestSageMakerUnifiedStudioNotebookOperator:
     def test_execute_propagates_wait_failure(self, mock_hook_prop):
         mock_hook = MagicMock()
         mock_hook_prop.return_value = mock_hook
-        mock_hook.start_notebook_run.return_value = {"notebook_run_id": NOTEBOOK_RUN_ID}
+        mock_hook.start_notebook_run.return_value = {"id": NOTEBOOK_RUN_ID}
         mock_hook.wait_for_notebook_run.side_effect = RuntimeError("Notebook crashed")
 
         op = SageMakerUnifiedStudioNotebookOperator(
@@ -209,7 +209,7 @@ class TestSageMakerUnifiedStudioNotebookOperator:
         """Execute with only required params passes None for all optionals."""
         mock_hook = MagicMock()
         mock_hook_prop.return_value = mock_hook
-        mock_hook.start_notebook_run.return_value = {"notebook_run_id": NOTEBOOK_RUN_ID}
+        mock_hook.start_notebook_run.return_value = {"id": NOTEBOOK_RUN_ID}
         mock_hook.wait_for_notebook_run.return_value = {}
 
         op = SageMakerUnifiedStudioNotebookOperator(
@@ -234,7 +234,7 @@ class TestSageMakerUnifiedStudioNotebookOperator:
         """When wait_for_completion=False, execute returns immediately without polling."""
         mock_hook = MagicMock()
         mock_hook_prop.return_value = mock_hook
-        mock_hook.start_notebook_run.return_value = {"notebook_run_id": NOTEBOOK_RUN_ID}
+        mock_hook.start_notebook_run.return_value = {"id": NOTEBOOK_RUN_ID}
 
         op = SageMakerUnifiedStudioNotebookOperator(
             task_id=TASK_ID,
@@ -256,7 +256,7 @@ class TestSageMakerUnifiedStudioNotebookOperator:
         """When deferrable=True, execute defers to the trigger instead of polling."""
         mock_hook = MagicMock()
         mock_hook_prop.return_value = mock_hook
-        mock_hook.start_notebook_run.return_value = {"notebook_run_id": NOTEBOOK_RUN_ID}
+        mock_hook.start_notebook_run.return_value = {"id": NOTEBOOK_RUN_ID}
 
         op = SageMakerUnifiedStudioNotebookOperator(
             task_id=TASK_ID,
@@ -286,7 +286,7 @@ class TestSageMakerUnifiedStudioNotebookOperator:
         """Deferrable takes precedence over wait_for_completion=False."""
         mock_hook = MagicMock()
         mock_hook_prop.return_value = mock_hook
-        mock_hook.start_notebook_run.return_value = {"notebook_run_id": NOTEBOOK_RUN_ID}
+        mock_hook.start_notebook_run.return_value = {"id": NOTEBOOK_RUN_ID}
 
         op = SageMakerUnifiedStudioNotebookOperator(
             task_id=TASK_ID,
