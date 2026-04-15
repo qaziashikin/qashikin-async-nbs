@@ -31,6 +31,7 @@ from airflow.providers.amazon.aws.hooks.sagemaker_unified_studio_notebook import
     SageMakerUnifiedStudioNotebookHook,
 )
 from airflow.providers.amazon.aws.sensors.base_aws import AwsBaseSensor
+from airflow.providers.amazon.aws.utils.mixins import aws_template_fields
 
 if TYPE_CHECKING:
     from airflow.sdk import Context
@@ -63,7 +64,7 @@ class SageMakerUnifiedStudioNotebookSensor(AwsBaseSensor[SageMakerUnifiedStudioN
     """
 
     aws_hook_class = SageMakerUnifiedStudioNotebookHook
-    template_fields: Sequence[str] = AwsBaseSensor.template_fields + ("notebook_run_id",)
+    template_fields: Sequence[str] = aws_template_fields("notebook_run_id")
 
     def __init__(
         self,
