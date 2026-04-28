@@ -94,7 +94,15 @@ class SageMakerUnifiedStudioNotebookOperator(AwsBaseOperator[SageMakerUnifiedStu
 
     operator_extra_links = (SageMakerUnifiedStudioLink(),)
     aws_hook_class = SageMakerUnifiedStudioNotebookHook
-    template_fields: Sequence[str] = aws_template_fields("notebook_parameters")
+    template_fields: Sequence[str] = aws_template_fields(
+        "client_token",
+        "compute_configuration",
+        "domain_identifier",
+        "notebook_identifier",
+        "notebook_parameters",
+        "owning_project_identifier",
+        "timeout_configuration",
+    )
 
     def __init__(
         self,
