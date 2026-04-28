@@ -61,10 +61,17 @@ class SageMakerUnifiedStudioNotebookSensor(AwsBaseSensor[SageMakerUnifiedStudioN
     :param owning_project_identifier: The ID of the SageMaker Unified Studio project containing the notebook.
     :param notebook_run_id: The ID of the notebook run to monitor.
         This is returned by the ``SageMakerUnifiedStudioNotebookOperator``.
+    :param notebook_identifier: The ID of the notebook that was executed.
+        Required to read notebook outputs from S3 after the run completes.
     """
 
     aws_hook_class = SageMakerUnifiedStudioNotebookHook
-    template_fields: Sequence[str] = aws_template_fields("notebook_run_id")
+    template_fields: Sequence[str] = aws_template_fields(
+        "domain_identifier",
+        "notebook_identifier",
+        "notebook_run_id",
+        "owning_project_identifier",
+    )
 
     def __init__(
         self,
@@ -72,12 +79,14 @@ class SageMakerUnifiedStudioNotebookSensor(AwsBaseSensor[SageMakerUnifiedStudioN
         domain_identifier: str,
         owning_project_identifier: str,
         notebook_run_id: str,
+        notebook_identifier: str,
         **kwargs,
     ):
         super().__init__(**kwargs)
         self.domain_identifier = domain_identifier
         self.owning_project_identifier = owning_project_identifier
         self.notebook_run_id = notebook_run_id
+        self.notebook_identifier = notebook_identifier
         self.success_states = ["SUCCEEDED"]
         self.in_progress_states = ["QUEUED", "STARTING", "RUNNING", "STOPPING"]
 
@@ -101,3 +110,13 @@ class SageMakerUnifiedStudioNotebookSensor(AwsBaseSensor[SageMakerUnifiedStudioN
         # This will invoke poke method in the base sensor
         self.log.info("Polling notebook run %s in domain %s", self.notebook_run_id, self.domain_identifier)
         super().execute(context=context)
+
+        # After successful completion, read notebook outputs from S3 and push to xcom
+        outputs = self.hook.get_notebook_outputs(
+            notebook_identifier=self.notebook_identifier,
+            notebook_run_id=self.notebook_run_id,
+            owning_project_identifier=self.owning_project_identifier,
+        )
+        if outputs:
+            for key, value in outputs.items():
+                context["ti"].xcom_push(key=key, value=value)

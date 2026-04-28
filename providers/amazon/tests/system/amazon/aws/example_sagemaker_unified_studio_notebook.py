@@ -39,7 +39,9 @@ from system.amazon.aws.utils import ENV_ID_KEY, SystemTestContextBuilder
 Prerequisites: The account which runs this test must have the following:
 1. A SageMaker Unified Studio Domain (with default VPC and roles)
 2. A project within the SageMaker Unified Studio Domain
-3. A notebook asset registered in the project with a known notebook_id
+3. Two notebook assets registered in the project:
+   - NOTEBOOK_ID: A notebook that produces output variables (e.g., name, age)
+   - NOTEBOOK_B_ID: A notebook that accepts parameters and uses them
 
 This test calls the DataZone StartNotebookRun / GetNotebookRun APIs directly
 via boto3 using standard IAM credentials. No MWAA environment emulation is performed.
@@ -51,12 +53,14 @@ DAG_ID = "example_sagemaker_unified_studio_notebook"
 DOMAIN_ID_KEY = "DOMAIN_ID"
 PROJECT_ID_KEY = "PROJECT_ID"
 NOTEBOOK_ID_KEY = "NOTEBOOK_ID"
+NOTEBOOK_B_ID_KEY = "NOTEBOOK_B_ID"
 
 sys_test_context_task = (
     SystemTestContextBuilder()
     .add_variable(DOMAIN_ID_KEY)
     .add_variable(PROJECT_ID_KEY)
     .add_variable(NOTEBOOK_ID_KEY)
+    .add_variable(NOTEBOOK_B_ID_KEY)
     .build()
 )
 
@@ -72,6 +76,7 @@ with DAG(
     domain_id = test_context[DOMAIN_ID_KEY]
     project_id = test_context[PROJECT_ID_KEY]
     notebook_id = test_context[NOTEBOOK_ID_KEY]
+    notebook_b_id = test_context[NOTEBOOK_B_ID_KEY]
 
     # [START howto_operator_sagemaker_unified_studio_notebook]
     import time
@@ -112,15 +117,42 @@ with DAG(
         task_id="notebook-sensor-task",
         domain_identifier=domain_id,
         owning_project_identifier=project_id,
+        notebook_identifier=notebook_id,
         notebook_run_id=run_notebook.output,
     )
     # [END howto_sensor_sagemaker_unified_studio_notebook]
+
+    # [START howto_operator_sagemaker_unified_studio_notebook_pass_outputs]
+    # Notebook A produces outputs (e.g., name, age) that are pushed to xcom.
+    # Notebook B consumes those outputs via Jinja templating in notebook_parameters.
+    run_notebook_a = SageMakerUnifiedStudioNotebookOperator(
+        task_id="notebook-a-task",
+        notebook_identifier=notebook_id,
+        domain_identifier=domain_id,
+        owning_project_identifier=project_id,
+        wait_for_completion=True,
+    )
+
+    run_notebook_b = SageMakerUnifiedStudioNotebookOperator(
+        task_id="notebook-b-task",
+        notebook_identifier=notebook_b_id,
+        domain_identifier=domain_id,
+        owning_project_identifier=project_id,
+        notebook_parameters={
+            "employee_name": "{{ task_instance.xcom_pull(task_ids='notebook-a-task', key='name') }}",
+            "employee_age": "{{ task_instance.xcom_pull(task_ids='notebook-a-task', key='age') }}",
+        },
+        wait_for_completion=True,
+    )
+    # [END howto_operator_sagemaker_unified_studio_notebook_pass_outputs]
 
     chain(
         test_context,
         run_notebook,
         run_notebook_deferrable,
         run_sensor,
+        run_notebook_a,
+        run_notebook_b,
     )
 
     from tests_common.test_utils.watcher import watcher

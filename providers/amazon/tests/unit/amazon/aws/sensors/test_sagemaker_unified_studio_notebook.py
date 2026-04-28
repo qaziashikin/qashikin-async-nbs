@@ -27,6 +27,7 @@ from airflow.providers.common.compat.sdk import Context
 
 DOMAIN_ID = "dzd_example"
 PROJECT_ID = "proj_example"
+NOTEBOOK_ID = "nb-1234567890"
 NOTEBOOK_RUN_ID = "nr-1234567890"
 
 HOOK_PATH = (
@@ -42,10 +43,12 @@ class TestSageMakerUnifiedStudioNotebookSensor:
             domain_identifier=DOMAIN_ID,
             owning_project_identifier=PROJECT_ID,
             notebook_run_id=NOTEBOOK_RUN_ID,
+            notebook_identifier=NOTEBOOK_ID,
         )
         assert sensor.domain_identifier == DOMAIN_ID
         assert sensor.owning_project_identifier == PROJECT_ID
         assert sensor.notebook_run_id == NOTEBOOK_RUN_ID
+        assert sensor.notebook_identifier == NOTEBOOK_ID
         assert sensor.success_states == ["SUCCEEDED"]
         assert sensor.in_progress_states == ["QUEUED", "STARTING", "RUNNING", "STOPPING"]
 
@@ -59,6 +62,7 @@ class TestSageMakerUnifiedStudioNotebookSensor:
             domain_identifier=DOMAIN_ID,
             owning_project_identifier=PROJECT_ID,
             notebook_run_id=NOTEBOOK_RUN_ID,
+            notebook_identifier=NOTEBOOK_ID,
             aws_conn_id=None,
         )
         assert isinstance(sensor.hook, SageMakerUnifiedStudioNotebookHook)
@@ -75,6 +79,7 @@ class TestSageMakerUnifiedStudioNotebookSensor:
             domain_identifier=DOMAIN_ID,
             owning_project_identifier=PROJECT_ID,
             notebook_run_id=NOTEBOOK_RUN_ID,
+            notebook_identifier=NOTEBOOK_ID,
         )
 
         result = sensor.poke(context=MagicMock(spec=Context))
@@ -95,6 +100,7 @@ class TestSageMakerUnifiedStudioNotebookSensor:
             domain_identifier=DOMAIN_ID,
             owning_project_identifier=PROJECT_ID,
             notebook_run_id=NOTEBOOK_RUN_ID,
+            notebook_identifier=NOTEBOOK_ID,
         )
 
         result = sensor.poke(context=MagicMock(spec=Context))
@@ -114,6 +120,7 @@ class TestSageMakerUnifiedStudioNotebookSensor:
             domain_identifier=DOMAIN_ID,
             owning_project_identifier=PROJECT_ID,
             notebook_run_id=NOTEBOOK_RUN_ID,
+            notebook_identifier=NOTEBOOK_ID,
         )
 
         with pytest.raises(RuntimeError, match=f"Exiting notebook run {NOTEBOOK_RUN_ID}. State: FAILED"):
@@ -134,6 +141,7 @@ class TestSageMakerUnifiedStudioNotebookSensor:
             domain_identifier=DOMAIN_ID,
             owning_project_identifier=PROJECT_ID,
             notebook_run_id=NOTEBOOK_RUN_ID,
+            notebook_identifier=NOTEBOOK_ID,
         )
 
         with pytest.raises(RuntimeError, match=f"Exiting notebook run {NOTEBOOK_RUN_ID}. State: STOPPED"):
@@ -150,6 +158,7 @@ class TestSageMakerUnifiedStudioNotebookSensor:
             domain_identifier=DOMAIN_ID,
             owning_project_identifier=PROJECT_ID,
             notebook_run_id=NOTEBOOK_RUN_ID,
+            notebook_identifier=NOTEBOOK_ID,
         )
 
         with pytest.raises(
@@ -168,21 +177,83 @@ class TestSageMakerUnifiedStudioNotebookSensor:
             domain_identifier=DOMAIN_ID,
             owning_project_identifier=PROJECT_ID,
             notebook_run_id=NOTEBOOK_RUN_ID,
+            notebook_identifier=NOTEBOOK_ID,
         )
 
         with pytest.raises(RuntimeError, match=f"Exiting notebook run {NOTEBOOK_RUN_ID}. State: "):
             sensor.poke(context=MagicMock(spec=Context))
 
+    # --- execute with notebook outputs ---
+
+    @patch(HOOK_PATH, new_callable=PropertyMock)
     @patch.object(SageMakerUnifiedStudioNotebookSensor, "poke", return_value=True)
-    def test_execute_calls_poke(self, mock_poke):
+    def test_execute_calls_poke_and_reads_outputs(self, mock_poke, mock_hook_prop):
+        mock_hook = MagicMock()
+        mock_hook_prop.return_value = mock_hook
+        mock_hook.get_notebook_outputs.return_value = {"name": "Alice"}
+
         sensor = SageMakerUnifiedStudioNotebookSensor(
             task_id="test_task",
             domain_identifier=DOMAIN_ID,
             owning_project_identifier=PROJECT_ID,
             notebook_run_id=NOTEBOOK_RUN_ID,
+            notebook_identifier=NOTEBOOK_ID,
         )
 
         context = MagicMock(spec=Context)
+        context.__getitem__ = MagicMock(return_value=MagicMock())
         sensor.execute(context=context)
 
         mock_poke.assert_called_once_with(context)
+        mock_hook.get_notebook_outputs.assert_called_once_with(
+            notebook_identifier=NOTEBOOK_ID,
+            notebook_run_id=NOTEBOOK_RUN_ID,
+            owning_project_identifier=PROJECT_ID,
+        )
+        context["ti"].xcom_push.assert_called_once_with(key="name", value="Alice")
+
+    @patch(HOOK_PATH, new_callable=PropertyMock)
+    @patch.object(SageMakerUnifiedStudioNotebookSensor, "poke", return_value=True)
+    def test_execute_no_outputs_does_not_push_xcom(self, mock_poke, mock_hook_prop):
+        mock_hook = MagicMock()
+        mock_hook_prop.return_value = mock_hook
+        mock_hook.get_notebook_outputs.return_value = {}
+
+        sensor = SageMakerUnifiedStudioNotebookSensor(
+            task_id="test_task",
+            domain_identifier=DOMAIN_ID,
+            owning_project_identifier=PROJECT_ID,
+            notebook_run_id=NOTEBOOK_RUN_ID,
+            notebook_identifier=NOTEBOOK_ID,
+        )
+
+        context = MagicMock(spec=Context)
+        context.__getitem__ = MagicMock(return_value=MagicMock())
+        sensor.execute(context=context)
+
+        mock_hook.get_notebook_outputs.assert_called_once()
+        context["ti"].xcom_push.assert_not_called()
+
+    @patch(HOOK_PATH, new_callable=PropertyMock)
+    @patch.object(SageMakerUnifiedStudioNotebookSensor, "poke", return_value=True)
+    def test_execute_multiple_outputs_pushed_to_xcom(self, mock_poke, mock_hook_prop):
+        mock_hook = MagicMock()
+        mock_hook_prop.return_value = mock_hook
+        mock_hook.get_notebook_outputs.return_value = {"name": "Alice", "age": 42, "dept": "Engineering"}
+
+        sensor = SageMakerUnifiedStudioNotebookSensor(
+            task_id="test_task",
+            domain_identifier=DOMAIN_ID,
+            owning_project_identifier=PROJECT_ID,
+            notebook_run_id=NOTEBOOK_RUN_ID,
+            notebook_identifier=NOTEBOOK_ID,
+        )
+
+        context = MagicMock(spec=Context)
+        context.__getitem__ = MagicMock(return_value=MagicMock())
+        sensor.execute(context=context)
+
+        assert context["ti"].xcom_push.call_count == 3
+        context["ti"].xcom_push.assert_any_call(key="name", value="Alice")
+        context["ti"].xcom_push.assert_any_call(key="age", value=42)
+        context["ti"].xcom_push.assert_any_call(key="dept", value="Engineering")

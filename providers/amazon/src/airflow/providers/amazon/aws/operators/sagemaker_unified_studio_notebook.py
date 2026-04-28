@@ -131,6 +131,29 @@ class SageMakerUnifiedStudioNotebookOperator(AwsBaseOperator[SageMakerUnifiedStu
         self.waiter_delay = waiter_delay
         self.deferrable = deferrable
 
+    def _push_notebook_outputs(self, context: Context, notebook_run_id: str) -> dict[str, Any]:
+        """
+        Read notebook outputs from S3 and push each key-value pair to xcom.
+
+        Each output becomes a top-level xcom key so downstream tasks can
+        reference them as ``task.output.<key>``.
+
+        :param context: The Airflow context.
+        :param notebook_run_id: The ID of the completed notebook run.
+        :return: A flat dict containing notebook_run_id and all notebook outputs.
+        """
+        result: dict[str, Any] = {"notebook_run_id": notebook_run_id}
+        outputs = self.hook.get_notebook_outputs(
+            notebook_identifier=self.notebook_identifier,
+            notebook_run_id=notebook_run_id,
+            owning_project_identifier=self.owning_project_identifier,
+        )
+        if outputs:
+            for key, value in outputs.items():
+                context["ti"].xcom_push(key=key, value=value)
+            result.update(outputs)
+        return result
+
     def execute(self, context: Context):
         workflow_name = context["dag"].dag_id  # Workflow name is the same as the dag_id
         response = self.hook.start_notebook_run(
@@ -164,10 +187,11 @@ class SageMakerUnifiedStudioNotebookOperator(AwsBaseOperator[SageMakerUnifiedStu
                 waiter_delay=self.waiter_delay,
                 timeout_configuration=self.timeout_configuration,
             )
+            return self._push_notebook_outputs(context, notebook_run_id)
 
-        return notebook_run_id
+        return {"notebook_run_id": notebook_run_id}
 
-    def execute_complete(self, context: Context, event: dict[str, Any] | None = None) -> str:
+    def execute_complete(self, context: Context, event: dict[str, Any] | None = None) -> dict[str, Any]:
         validated_event = validate_execute_complete_event(event)
 
         if validated_event.get("status") != "success":
@@ -175,4 +199,4 @@ class SageMakerUnifiedStudioNotebookOperator(AwsBaseOperator[SageMakerUnifiedStu
 
         notebook_run_id = validated_event["notebook_run_id"]
         self.log.info("Notebook run %s completed for notebook %s", notebook_run_id, self.notebook_identifier)
-        return notebook_run_id
+        return self._push_notebook_outputs(context, notebook_run_id)

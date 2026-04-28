@@ -19,6 +19,8 @@
 
 from __future__ import annotations
 
+import json
+import logging
 import math
 import time
 import uuid
@@ -210,3 +212,72 @@ class SageMakerUnifiedStudioNotebookHook(AwsBaseHook):
         if error_message == "":
             error_message = execution_message
         raise RuntimeError(error_message)
+
+    def get_project_s3_path(self, project_id: str) -> str:
+        """
+        Construct the S3 path for a SageMaker Unified Studio project bucket.
+
+        :param project_id: The ID of the DataZone project.
+        :return: The S3 bucket name for the project.
+        """
+        account_id = self.account_id
+        region = self.conn_region_name
+        return f"amazon-sagemaker-{account_id}-{region}-{project_id}"
+
+    def get_notebook_outputs(
+        self,
+        notebook_identifier: str,
+        notebook_run_id: str,
+        owning_project_identifier: str,
+    ) -> dict[str, Any]:
+        """
+        Read notebook output artifacts from the S3 project bucket.
+
+        After a notebook run completes, the SDK writes output variables as a JSON
+        file to a well-known S3 location within the project bucket. This method
+        reads that file and returns the parsed key-value pairs.
+
+        :param notebook_identifier: The ID of the notebook that was executed.
+        :param notebook_run_id: The ID of the completed notebook run.
+        :param owning_project_identifier: The ID of the DataZone project.
+        :return: A dict of notebook output key-value pairs. Returns an empty dict
+            if no outputs were written or the file cannot be parsed.
+        """
+        bucket = self.get_project_s3_path(owning_project_identifier)
+        key = f"sys/notebooks/{notebook_identifier}/runs/{notebook_run_id}/notebook_outputs.json"
+
+        log = logging.getLogger(__name__)
+        log.info("Reading notebook outputs from s3://%s/%s", bucket, key)
+
+        try:
+            s3_client = self.get_session().client("s3", region_name=self.conn_region_name)
+            response = s3_client.get_object(Bucket=bucket, Key=key)
+            content = response["Body"].read().decode("utf-8")
+            outputs = json.loads(content)
+            if not isinstance(outputs, dict):
+                log.warning(
+                    "Notebook outputs at s3://%s/%s is not a JSON object, ignoring.",
+                    bucket,
+                    key,
+                )
+                return {}
+            log.info("Successfully read %d notebook output(s).", len(outputs))
+            return outputs
+        except s3_client.exceptions.NoSuchKey:
+            log.info("No notebook outputs found at s3://%s/%s.", bucket, key)
+            return {}
+        except (json.JSONDecodeError, UnicodeDecodeError):
+            log.warning(
+                "Failed to parse notebook outputs at s3://%s/%s as JSON, ignoring.",
+                bucket,
+                key,
+            )
+            return {}
+        except Exception:
+            log.warning(
+                "Unexpected error reading notebook outputs from s3://%s/%s, ignoring.",
+                bucket,
+                key,
+                exc_info=True,
+            )
+            return {}

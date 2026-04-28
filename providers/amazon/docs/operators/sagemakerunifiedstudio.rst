@@ -82,6 +82,19 @@ The following example adds domain ID, project ID, and domain name as operator pa
     :start-after: [START howto_operator_sagemaker_unified_studio_notebook_explicit_params]
     :end-before: [END howto_operator_sagemaker_unified_studio_notebook_explicit_params]
 
+Notebooks can produce output variables that are automatically pushed to XCom when the run completes.
+Downstream tasks can consume these outputs via Jinja templating in ``notebook_parameters``.
+
+In this example, Notebook A produces outputs (e.g., ``name`` and ``age``). Notebook B receives
+those values as parameters using Jinja templates like
+``{{ task_instance.xcom_pull(task_ids='notebook-a-task', key='name') }}``.
+
+.. exampleinclude:: /../../amazon/tests/system/amazon/aws/example_sagemaker_unified_studio_notebook.py
+    :language: python
+    :dedent: 4
+    :start-after: [START howto_operator_sagemaker_unified_studio_notebook_pass_outputs]
+    :end-before: [END howto_operator_sagemaker_unified_studio_notebook_pass_outputs]
+
 Reference
 ---------
 

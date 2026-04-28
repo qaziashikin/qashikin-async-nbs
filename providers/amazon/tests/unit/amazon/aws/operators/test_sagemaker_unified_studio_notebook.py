@@ -45,7 +45,8 @@ def _make_context(dag_id=DAG_ID):
     """Build a minimal mock context with a dag that has a dag_id."""
     dag = MagicMock()
     dag.dag_id = dag_id
-    return {"dag": dag}
+    ti = MagicMock()
+    return {"dag": dag, "ti": ti}
 
 
 class TestSageMakerUnifiedStudioNotebookOperator:
@@ -119,6 +120,7 @@ class TestSageMakerUnifiedStudioNotebookOperator:
             "Status": "SUCCEEDED",
             "NotebookRunId": NOTEBOOK_RUN_ID,
         }
+        mock_hook.get_notebook_outputs.return_value = {}
 
         op = SageMakerUnifiedStudioNotebookOperator(
             task_id=TASK_ID,
@@ -133,7 +135,7 @@ class TestSageMakerUnifiedStudioNotebookOperator:
 
         result = op.execute(_make_context())
 
-        assert result == NOTEBOOK_RUN_ID
+        assert result == {"notebook_run_id": NOTEBOOK_RUN_ID}
         mock_hook.start_notebook_run.assert_called_once_with(
             notebook_identifier=NOTEBOOK_ID,
             domain_identifier=DOMAIN_ID,
@@ -157,6 +159,7 @@ class TestSageMakerUnifiedStudioNotebookOperator:
         mock_hook_prop.return_value = mock_hook
         mock_hook.start_notebook_run.return_value = {"id": NOTEBOOK_RUN_ID}
         mock_hook.wait_for_notebook_run.return_value = {}
+        mock_hook.get_notebook_outputs.return_value = {}
 
         op = SageMakerUnifiedStudioNotebookOperator(
             task_id=TASK_ID,
@@ -211,6 +214,7 @@ class TestSageMakerUnifiedStudioNotebookOperator:
         mock_hook_prop.return_value = mock_hook
         mock_hook.start_notebook_run.return_value = {"id": NOTEBOOK_RUN_ID}
         mock_hook.wait_for_notebook_run.return_value = {}
+        mock_hook.get_notebook_outputs.return_value = {}
 
         op = SageMakerUnifiedStudioNotebookOperator(
             task_id=TASK_ID,
@@ -220,7 +224,7 @@ class TestSageMakerUnifiedStudioNotebookOperator:
         )
         result = op.execute(_make_context())
 
-        assert result == NOTEBOOK_RUN_ID
+        assert result == {"notebook_run_id": NOTEBOOK_RUN_ID}
         call_kwargs = mock_hook.start_notebook_run.call_args[1]
         assert call_kwargs["client_token"] is None
         assert call_kwargs["notebook_parameters"] is None
@@ -245,9 +249,10 @@ class TestSageMakerUnifiedStudioNotebookOperator:
         )
         result = op.execute(_make_context())
 
-        assert result == NOTEBOOK_RUN_ID
+        assert result == {"notebook_run_id": NOTEBOOK_RUN_ID}
         mock_hook.start_notebook_run.assert_called_once()
         mock_hook.wait_for_notebook_run.assert_not_called()
+        mock_hook.get_notebook_outputs.assert_not_called()
 
     # --- deferrable mode ---
 
@@ -304,7 +309,12 @@ class TestSageMakerUnifiedStudioNotebookOperator:
 
     # --- execute_complete ---
 
-    def test_execute_complete_success(self):
+    @patch(HOOK_PATH, new_callable=PropertyMock)
+    def test_execute_complete_success(self, mock_hook_prop):
+        mock_hook = MagicMock()
+        mock_hook_prop.return_value = mock_hook
+        mock_hook.get_notebook_outputs.return_value = {}
+
         op = SageMakerUnifiedStudioNotebookOperator(
             task_id=TASK_ID,
             notebook_identifier=NOTEBOOK_ID,
@@ -313,7 +323,7 @@ class TestSageMakerUnifiedStudioNotebookOperator:
         )
         event = {"status": "success", "notebook_run_id": NOTEBOOK_RUN_ID}
         result = op.execute_complete(context=_make_context(), event=event)
-        assert result == NOTEBOOK_RUN_ID
+        assert result == {"notebook_run_id": NOTEBOOK_RUN_ID}
 
     def test_execute_complete_failure(self):
         op = SageMakerUnifiedStudioNotebookOperator(
@@ -335,3 +345,124 @@ class TestSageMakerUnifiedStudioNotebookOperator:
         )
         with pytest.raises(AirflowException, match="event is None"):
             op.execute_complete(context=_make_context(), event=None)
+
+    # --- notebook outputs / xcom push ---
+
+    @patch(HOOK_PATH, new_callable=PropertyMock)
+    def test_execute_pushes_notebook_outputs_to_xcom(self, mock_hook_prop):
+        """When notebook outputs exist, each key-value pair is pushed to xcom."""
+        mock_hook = MagicMock()
+        mock_hook_prop.return_value = mock_hook
+        mock_hook.start_notebook_run.return_value = {"id": NOTEBOOK_RUN_ID}
+        mock_hook.wait_for_notebook_run.return_value = {
+            "Status": "SUCCEEDED",
+            "NotebookRunId": NOTEBOOK_RUN_ID,
+        }
+        mock_hook.get_notebook_outputs.return_value = {"name": "Alice", "age": 42}
+
+        op = SageMakerUnifiedStudioNotebookOperator(
+            task_id=TASK_ID,
+            notebook_identifier=NOTEBOOK_ID,
+            domain_identifier=DOMAIN_ID,
+            owning_project_identifier=PROJECT_ID,
+        )
+        context = _make_context()
+        result = op.execute(context)
+
+        assert result == {
+            "notebook_run_id": NOTEBOOK_RUN_ID,
+            "name": "Alice",
+            "age": 42,
+        }
+        mock_hook.get_notebook_outputs.assert_called_once_with(
+            notebook_identifier=NOTEBOOK_ID,
+            notebook_run_id=NOTEBOOK_RUN_ID,
+            owning_project_identifier=PROJECT_ID,
+        )
+        context["ti"].xcom_push.assert_any_call(key="name", value="Alice")
+        context["ti"].xcom_push.assert_any_call(key="age", value=42)
+        assert context["ti"].xcom_push.call_count == 2
+
+    @patch(HOOK_PATH, new_callable=PropertyMock)
+    def test_execute_no_outputs_does_not_push_xcom(self, mock_hook_prop):
+        """When no notebook outputs exist, xcom_push is not called."""
+        mock_hook = MagicMock()
+        mock_hook_prop.return_value = mock_hook
+        mock_hook.start_notebook_run.return_value = {"id": NOTEBOOK_RUN_ID}
+        mock_hook.wait_for_notebook_run.return_value = {}
+        mock_hook.get_notebook_outputs.return_value = {}
+
+        op = SageMakerUnifiedStudioNotebookOperator(
+            task_id=TASK_ID,
+            notebook_identifier=NOTEBOOK_ID,
+            domain_identifier=DOMAIN_ID,
+            owning_project_identifier=PROJECT_ID,
+        )
+        context = _make_context()
+        result = op.execute(context)
+
+        assert result == {"notebook_run_id": NOTEBOOK_RUN_ID}
+        context["ti"].xcom_push.assert_not_called()
+
+    @patch(HOOK_PATH, new_callable=PropertyMock)
+    def test_execute_no_wait_skips_outputs(self, mock_hook_prop):
+        """When wait_for_completion=False, notebook outputs are not read."""
+        mock_hook = MagicMock()
+        mock_hook_prop.return_value = mock_hook
+        mock_hook.start_notebook_run.return_value = {"id": NOTEBOOK_RUN_ID}
+
+        op = SageMakerUnifiedStudioNotebookOperator(
+            task_id=TASK_ID,
+            notebook_identifier=NOTEBOOK_ID,
+            domain_identifier=DOMAIN_ID,
+            owning_project_identifier=PROJECT_ID,
+            wait_for_completion=False,
+        )
+        context = _make_context()
+        result = op.execute(context)
+
+        assert result == {"notebook_run_id": NOTEBOOK_RUN_ID}
+        mock_hook.get_notebook_outputs.assert_not_called()
+
+    @patch(HOOK_PATH, new_callable=PropertyMock)
+    def test_execute_complete_pushes_notebook_outputs_to_xcom(self, mock_hook_prop):
+        """execute_complete reads outputs from S3 and pushes to xcom."""
+        mock_hook = MagicMock()
+        mock_hook_prop.return_value = mock_hook
+        mock_hook.get_notebook_outputs.return_value = {"result": "success_value"}
+
+        op = SageMakerUnifiedStudioNotebookOperator(
+            task_id=TASK_ID,
+            notebook_identifier=NOTEBOOK_ID,
+            domain_identifier=DOMAIN_ID,
+            owning_project_identifier=PROJECT_ID,
+        )
+        context = _make_context()
+        event = {"status": "success", "notebook_run_id": NOTEBOOK_RUN_ID}
+        result = op.execute_complete(context=context, event=event)
+
+        assert result == {
+            "notebook_run_id": NOTEBOOK_RUN_ID,
+            "result": "success_value",
+        }
+        context["ti"].xcom_push.assert_called_once_with(key="result", value="success_value")
+
+    @patch(HOOK_PATH, new_callable=PropertyMock)
+    def test_execute_complete_no_outputs(self, mock_hook_prop):
+        """execute_complete with no outputs returns only notebook_run_id."""
+        mock_hook = MagicMock()
+        mock_hook_prop.return_value = mock_hook
+        mock_hook.get_notebook_outputs.return_value = {}
+
+        op = SageMakerUnifiedStudioNotebookOperator(
+            task_id=TASK_ID,
+            notebook_identifier=NOTEBOOK_ID,
+            domain_identifier=DOMAIN_ID,
+            owning_project_identifier=PROJECT_ID,
+        )
+        context = _make_context()
+        event = {"status": "success", "notebook_run_id": NOTEBOOK_RUN_ID}
+        result = op.execute_complete(context=context, event=event)
+
+        assert result == {"notebook_run_id": NOTEBOOK_RUN_ID}
+        context["ti"].xcom_push.assert_not_called()
