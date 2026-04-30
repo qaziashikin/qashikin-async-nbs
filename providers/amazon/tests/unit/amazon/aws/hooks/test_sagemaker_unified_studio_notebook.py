@@ -96,7 +96,7 @@ class TestSageMakerUnifiedStudioNotebookHook:
         assert call_kwargs["parameters"] == {"notebook_parameters": {"param1": "value1"}}
         assert call_kwargs["compute_configuration"] == {"instance_type": "ml.m5.large"}
         assert call_kwargs["timeout_configuration"] == {"run_timeout_in_minutes": 120}
-        assert call_kwargs["trigger_source"] == {"type": "workflow", "workflow_name": "my_dag"}
+        assert call_kwargs["trigger_source"] == {"type": "workflow", "name": "my_dag"}
 
     def test_start_notebook_run_auto_generates_client_token(self):
         """client_token is auto-generated as a UUID when not provided."""

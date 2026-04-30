@@ -112,7 +112,7 @@ class SageMakerUnifiedStudioNotebookHook(AwsBaseHook):
         if timeout_configuration:
             params["timeout_configuration"] = timeout_configuration
         if workflow_name:
-            params["trigger_source"] = {"type": "workflow", "workflow_name": workflow_name}
+            params["trigger_source"] = {"type": "workflow", "name": workflow_name}
 
         self.log.info(
             "Starting notebook run for notebook %s in domain %s", notebook_identifier, domain_identifier
