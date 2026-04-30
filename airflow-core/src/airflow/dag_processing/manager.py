@@ -471,7 +471,7 @@ class DagFileProcessorManager(LoggingMixin):
 
             self._collect_results()
 
-            for callback in self._fetch_callbacks():
+            for callback in self.fetch_callbacks():
                 self._add_callback_to_queue(callback)
             self._scan_stale_dags()
             self._cleanup_stale_bundle_versions()
@@ -568,9 +568,17 @@ class DagFileProcessorManager(LoggingMixin):
             session.delete(request)
         return files
 
+    def fetch_callbacks(self) -> list[CallbackRequest]:
+        """
+        Fetch and claim callbacks for this manager's bundles.
+
+        Default implementation reads from the metadata DB; override to source callbacks from an API.
+        """
+        return self._fetch_callbacks_from_db()
+
     @provide_session
     @retry_db_transaction
-    def _fetch_callbacks(
+    def _fetch_callbacks_from_db(
         self,
         session: Session = NEW_SESSION,
     ) -> list[CallbackRequest]:
@@ -602,12 +610,17 @@ class DagFileProcessorManager(LoggingMixin):
             guard.commit()
         return callback_queue
 
-    def _add_callback_to_queue(self, request: CallbackRequest):
-        self.log.debug("Queuing %s CallbackRequest: %s", type(request).__name__, request)
+    def prepare_callback_bundle(self, request: CallbackRequest) -> BaseDagBundle | None:
+        """
+        Return the bundle to run the callback against, or ``None`` to skip the callback.
+
+        Default implementation looks the bundle up via :class:`DagBundlesManager` and, for
+        versioned requests on bundles that support versioning, calls ``bundle.initialize()``.
+        Override to source the bundle from an API.
+        """
         try:
             bundle = DagBundlesManager().get_bundle(name=request.bundle_name, version=request.bundle_version)
         except ValueError:
-            # Bundle no longer configured
             self.log.error("Bundle %s no longer configured, skipping callback", request.bundle_name)
             return None
         if bundle.supports_versioning and request.bundle_version:
@@ -620,6 +633,13 @@ class DagFileProcessorManager(LoggingMixin):
                     request.bundle_version,
                 )
                 return None
+        return bundle
+
+    def _add_callback_to_queue(self, request: CallbackRequest) -> None:
+        self.log.debug("Queuing %s CallbackRequest: %s", type(request).__name__, request)
+        bundle = self.prepare_callback_bundle(request)
+        if bundle is None:
+            return
 
         file_info = DagFileInfo(
             rel_path=Path(request.filepath),
@@ -1015,8 +1035,13 @@ class DagFileProcessorManager(LoggingMixin):
                 processor.logger_filehandle.close()
                 self._file_stats.pop(file, None)
 
+    @provide_session
     def handle_parsing_result(
-        self, file: DagFileInfo, proc: DagFileProcessorProcess, *, session: Session
+        self,
+        file: DagFileInfo,
+        proc: DagFileProcessorProcess,
+        *,
+        session: Session = NEW_SESSION,
     ) -> None:
         """
         Post-process a single finished parse result.
@@ -1025,6 +1050,11 @@ class DagFileProcessorManager(LoggingMixin):
         and persists DAGs/import-errors via :meth:`persist_parsing_result`.
         Extracted from ``_collect_results`` to keep result handling and
         persistence separate.
+
+        Owns its own DB session via ``@provide_session`` so subclasses that
+        forward results without touching the metadata DB (e.g. AIP-92 API-backed
+        deployments) can override this method without inheriting a session
+        created by the caller.
 
         If persistence fails, the error is logged and the previous persisted
         DAG/import-error counts are preserved while a minimal timestamp update
@@ -1042,7 +1072,6 @@ class DagFileProcessorManager(LoggingMixin):
             finish_time=finish_time,
             run_count=self._file_stats[file].run_count,
             bundle_name=file.bundle_name,
-            bundle_version=self._bundle_versions[file.bundle_name],
             parsing_result=proc.parsing_result,
             is_callback_only=is_callback_only,
             relative_fileloc=str(file.rel_path),
@@ -1118,16 +1147,14 @@ class DagFileProcessorManager(LoggingMixin):
             files_parsed=files_parsed,
         )
 
-    @provide_session
-    def _collect_results(self, session: Session = NEW_SESSION):
-        # TODO: Use an explicit session in this fn
+    def _collect_results(self):
         finished = []
         for file, proc in self._processors.items():
             if not proc.is_ready:
                 # This processor hasn't finished yet, or we haven't read all the output from it yet
                 continue
             finished.append(file)
-            self.handle_parsing_result(file, proc, session=session)
+            self.handle_parsing_result(file, proc)
 
         for file in finished:
             processor = self._processors.pop(file)
@@ -1462,7 +1489,6 @@ def process_parse_results(
     finish_time: datetime,
     run_count: int,
     bundle_name: str,
-    bundle_version: str | None,
     parsing_result: DagFileParsingResult | None,
     *,
     is_callback_only: bool = False,
