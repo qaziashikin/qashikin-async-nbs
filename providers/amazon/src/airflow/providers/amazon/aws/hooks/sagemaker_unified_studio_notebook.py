@@ -259,7 +259,7 @@ class SageMakerUnifiedStudioNotebookHook(AwsBaseHook):
             if no outputs were written or the file cannot be parsed.
         """
         bucket = self.get_project_s3_path(owning_project_identifier)
-        key = f"sys/notebooks/{notebook_identifier}/notebook_outputs.json"
+        key = f"sys/notebooks/{notebook_identifier}/runs/{notebook_run_id}/notebook_outputs.json"
 
         log = logging.getLogger(__name__)
         log.info("Reading notebook outputs from s3://%s/%s", bucket, key)
