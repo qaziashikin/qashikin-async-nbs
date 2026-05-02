@@ -76,16 +76,16 @@ class TestSageMakerUnifiedStudioNotebookOperator:
             owning_project_identifier=PROJECT_ID,
             client_token="tok-123",
             notebook_parameters={"key": "val"},
-            compute_configuration={"instance_type": "ml.m5.large"},
-            timeout_configuration={"run_timeout_in_minutes": 60},
+            compute_configuration={"instanceType": "ml.m5.large"},
+            timeout_configuration={"runTimeoutInMinutes": 60},
             wait_for_completion=False,
             waiter_delay=30,
             deferrable=True,
         )
         assert op.client_token == "tok-123"
         assert op.notebook_parameters == {"key": "val"}
-        assert op.compute_configuration == {"instance_type": "ml.m5.large"}
-        assert op.timeout_configuration == {"run_timeout_in_minutes": 60}
+        assert op.compute_configuration == {"instanceType": "ml.m5.large"}
+        assert op.timeout_configuration == {"runTimeoutInMinutes": 60}
         assert op.wait_for_completion is False
         assert op.waiter_delay == 30
         assert op.deferrable is True
@@ -99,7 +99,7 @@ class TestSageMakerUnifiedStudioNotebookOperator:
             domain_identifier=DOMAIN_ID,
             owning_project_identifier=PROJECT_ID,
             waiter_delay=15,
-            timeout_configuration={"run_timeout_in_minutes": 120},
+            timeout_configuration={"runTimeoutInMinutes": 120},
             aws_conn_id=None,
         )
         from airflow.providers.amazon.aws.hooks.sagemaker_unified_studio_notebook import (
@@ -129,8 +129,8 @@ class TestSageMakerUnifiedStudioNotebookOperator:
             owning_project_identifier=PROJECT_ID,
             client_token="my-token",
             notebook_parameters={"p1": "v1"},
-            compute_configuration={"instance_type": "ml.m5.large"},
-            timeout_configuration={"run_timeout_in_minutes": 60},
+            compute_configuration={"instanceType": "ml.m5.large"},
+            timeout_configuration={"runTimeoutInMinutes": 60},
         )
 
         result = op.execute(_make_context())
@@ -142,15 +142,15 @@ class TestSageMakerUnifiedStudioNotebookOperator:
             owning_project_identifier=PROJECT_ID,
             client_token="my-token",
             notebook_parameters={"p1": "v1"},
-            compute_configuration={"instance_type": "ml.m5.large"},
-            timeout_configuration={"run_timeout_in_minutes": 60},
+            compute_configuration={"instanceType": "ml.m5.large"},
+            timeout_configuration={"runTimeoutInMinutes": 60},
             workflow_name=DAG_ID,
         )
         mock_hook.wait_for_notebook_run.assert_called_once_with(
             NOTEBOOK_RUN_ID,
             domain_identifier=DOMAIN_ID,
             waiter_delay=10,
-            timeout_configuration={"run_timeout_in_minutes": 60},
+            timeout_configuration={"runTimeoutInMinutes": 60},
         )
 
     @patch(HOOK_PATH, new_callable=PropertyMock)
@@ -270,7 +270,7 @@ class TestSageMakerUnifiedStudioNotebookOperator:
             owning_project_identifier=PROJECT_ID,
             deferrable=True,
             waiter_delay=20,
-            timeout_configuration={"run_timeout_in_minutes": 120},
+            timeout_configuration={"runTimeoutInMinutes": 120},
         )
 
         with pytest.raises(TaskDeferred) as exc_info:
@@ -282,7 +282,7 @@ class TestSageMakerUnifiedStudioNotebookOperator:
         assert trigger.domain_identifier == DOMAIN_ID
         assert trigger.owning_project_identifier == PROJECT_ID
         assert trigger.waiter_delay == 20
-        assert trigger.timeout_configuration == {"run_timeout_in_minutes": 120}
+        assert trigger.timeout_configuration == {"runTimeoutInMinutes": 120}
         assert exc_info.value.method_name == "execute_complete"
         mock_hook.wait_for_notebook_run.assert_not_called()
 

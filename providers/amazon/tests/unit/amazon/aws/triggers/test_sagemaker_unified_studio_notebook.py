@@ -49,14 +49,14 @@ class TestSageMakerUnifiedStudioNotebookTrigger:
     # --- serialization ---
 
     def test_serialize(self):
-        trigger = self._create_trigger(waiter_delay=10, timeout_configuration={"run_timeout_in_minutes": 60})
+        trigger = self._create_trigger(waiter_delay=10, timeout_configuration={"runTimeoutInMinutes": 60})
         classpath, kwargs = trigger.serialize()
         assert classpath == f"{MODULE_PATH}.SageMakerUnifiedStudioNotebookTrigger"
         assert kwargs["notebook_run_id"] == NOTEBOOK_RUN_ID
         assert kwargs["domain_identifier"] == DOMAIN_ID
         assert kwargs["owning_project_identifier"] == PROJECT_ID
         assert kwargs["waiter_delay"] == 10
-        assert kwargs["timeout_configuration"] == {"run_timeout_in_minutes": 60}
+        assert kwargs["timeout_configuration"] == {"runTimeoutInMinutes": 60}
         assert kwargs["waiter_max_attempts"] == int(60 * 60 / 10)
 
     # --- timeout calculation ---
@@ -66,7 +66,7 @@ class TestSageMakerUnifiedStudioNotebookTrigger:
         assert trigger.attempts == int(TWELVE_HOURS_IN_MINUTES * 60 / 10)
 
     def test_custom_timeout_configuration(self):
-        trigger = self._create_trigger(waiter_delay=10, timeout_configuration={"run_timeout_in_minutes": 60})
+        trigger = self._create_trigger(waiter_delay=10, timeout_configuration={"runTimeoutInMinutes": 60})
         assert trigger.attempts == int(60 * 60 / 10)
 
     def test_empty_timeout_configuration_falls_back_to_default(self):
@@ -82,7 +82,7 @@ class TestSageMakerUnifiedStudioNotebookTrigger:
     def test_waiter_args(self):
         trigger = self._create_trigger()
         assert trigger.waiter_args == {
-            "domain_identifier": DOMAIN_ID,
+            "domainIdentifier": DOMAIN_ID,
             "identifier": NOTEBOOK_RUN_ID,
         }
 

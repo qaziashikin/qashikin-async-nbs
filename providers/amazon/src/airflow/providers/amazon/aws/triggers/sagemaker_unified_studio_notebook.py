@@ -47,9 +47,9 @@ class SageMakerUnifiedStudioNotebookTrigger(AwsBaseWaiterTrigger):
     :param waiter_max_attempts: Maximum number of poll attempts.
     :param aws_conn_id: The Airflow connection used for AWS credentials.
     :param timeout_configuration: Optional timeout settings. When provided, the maximum
-        number of poll attempts is derived from ``run_timeout_in_minutes * 60 / waiter_delay``.
+        number of poll attempts is derived from ``runTimeoutInMinutes * 60 / waiter_delay``.
         Defaults to a 12-hour timeout when omitted.
-        Example: {"run_timeout_in_minutes": 720}
+        Example: {"runTimeoutInMinutes": 720}
     """
 
     def __init__(
@@ -64,7 +64,7 @@ class SageMakerUnifiedStudioNotebookTrigger(AwsBaseWaiterTrigger):
     ):
         if waiter_delay <= 0:
             raise ValueError("waiter_delay must be a positive integer")
-        run_timeout = (timeout_configuration or {}).get("run_timeout_in_minutes", TWELVE_HOURS_IN_MINUTES)
+        run_timeout = (timeout_configuration or {}).get("runTimeoutInMinutes", TWELVE_HOURS_IN_MINUTES)
         waiter_max_attempts = max(1, math.ceil(run_timeout * 60 / waiter_delay))
 
         self.notebook_run_id = notebook_run_id
@@ -81,7 +81,7 @@ class SageMakerUnifiedStudioNotebookTrigger(AwsBaseWaiterTrigger):
             },
             waiter_name="notebook_run_complete",
             waiter_args={
-                "domain_identifier": domain_identifier,
+                "domainIdentifier": domain_identifier,
                 "identifier": notebook_run_id,
             },
             failure_message=f"Notebook run {notebook_run_id} failed",

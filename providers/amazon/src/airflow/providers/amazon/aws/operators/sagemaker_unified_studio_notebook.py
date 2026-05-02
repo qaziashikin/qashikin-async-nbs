@@ -66,8 +66,8 @@ class SageMakerUnifiedStudioNotebookOperator(AwsBaseOperator[SageMakerUnifiedStu
             domain_identifier="dzd_example",
             owning_project_identifier="proj_example",
             notebook_parameters={"param1": "value1"},
-            compute_configuration={"instance_type": "ml.m5.large"},
-            timeout_configuration={"run_timeout_in_minutes": 1440},
+            compute_configuration={"instanceType": "ml.m5.large"},
+            timeout_configuration={"runTimeoutInMinutes": 1440},
         )
 
     :param task_id: A unique, meaningful id for the task.
@@ -77,9 +77,9 @@ class SageMakerUnifiedStudioNotebookOperator(AwsBaseOperator[SageMakerUnifiedStu
     :param client_token: Optional idempotency token. Auto-generated if not provided.
     :param notebook_parameters: Optional dict of parameters to pass to the notebook.
     :param compute_configuration: Optional compute config.
-        Example: {"instance_type": "ml.m5.large"}
+        Example: {"instanceType": "ml.m5.large"}
     :param timeout_configuration: Optional timeout settings.
-        Example: {"run_timeout_in_minutes": 1440}
+        Example: {"runTimeoutInMinutes": 1440}
     :param wait_for_completion: If True, wait for the notebook run to finish before
         completing the task. If False, the operator returns immediately after starting
         the run. (default: True)

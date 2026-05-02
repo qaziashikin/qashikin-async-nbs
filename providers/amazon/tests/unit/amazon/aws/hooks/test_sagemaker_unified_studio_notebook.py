@@ -65,15 +65,15 @@ class TestSageMakerUnifiedStudioNotebookHook:
 
         assert result == {"notebookRunId": NOTEBOOK_RUN_ID}
         call_kwargs = self.mock_client.start_notebook_run.call_args[1]
-        assert call_kwargs["domain_identifier"] == DOMAIN_ID
-        assert call_kwargs["owning_project_identifier"] == PROJECT_ID
-        assert call_kwargs["notebook_identifier"] == NOTEBOOK_ID
-        assert "client_token" in call_kwargs
+        assert call_kwargs["domainIdentifier"] == DOMAIN_ID
+        assert call_kwargs["owningProjectIdentifier"] == PROJECT_ID
+        assert call_kwargs["notebookIdentifier"] == NOTEBOOK_ID
+        assert "clientToken" in call_kwargs
         # Optional params should not be present
-        assert "notebook_parameters" not in call_kwargs
-        assert "compute_configuration" not in call_kwargs
-        assert "timeout_configuration" not in call_kwargs
-        assert "trigger_source" not in call_kwargs
+        assert "parameters" not in call_kwargs
+        assert "computeConfiguration" not in call_kwargs
+        assert "timeoutConfiguration" not in call_kwargs
+        assert "triggerSource" not in call_kwargs
 
     def test_start_notebook_run_all_params(self):
         """Start run with all optional params provided."""
@@ -85,18 +85,18 @@ class TestSageMakerUnifiedStudioNotebookHook:
             owning_project_identifier=PROJECT_ID,
             client_token="my-token",
             notebook_parameters={"param1": "value1"},
-            compute_configuration={"instance_type": "ml.m5.large"},
-            timeout_configuration={"run_timeout_in_minutes": 120},
+            compute_configuration={"instanceType": "ml.m5.large"},
+            timeout_configuration={"runTimeoutInMinutes": 120},
             workflow_name="my_dag",
         )
 
         assert result == {"notebookRunId": NOTEBOOK_RUN_ID}
         call_kwargs = self.mock_client.start_notebook_run.call_args[1]
-        assert call_kwargs["client_token"] == "my-token"
-        assert call_kwargs["parameters"] == {"notebook_parameters": {"param1": "value1"}}
-        assert call_kwargs["compute_configuration"] == {"instance_type": "ml.m5.large"}
-        assert call_kwargs["timeout_configuration"] == {"run_timeout_in_minutes": 120}
-        assert call_kwargs["trigger_source"] == {"type": "workflow", "name": "my_dag"}
+        assert call_kwargs["clientToken"] == "my-token"
+        assert call_kwargs["parameters"] == {"param1": "value1"}
+        assert call_kwargs["computeConfiguration"] == {"instanceType": "ml.m5.large"}
+        assert call_kwargs["timeoutConfiguration"] == {"runTimeoutInMinutes": 120}
+        assert call_kwargs["triggerSource"] == {"type": "WORKFLOW", "name": "my_dag"}
 
     def test_start_notebook_run_auto_generates_client_token(self):
         """client_token is auto-generated as a UUID when not provided."""
@@ -107,7 +107,7 @@ class TestSageMakerUnifiedStudioNotebookHook:
         )
 
         call_kwargs = self.mock_client.start_notebook_run.call_args[1]
-        token = call_kwargs["client_token"]
+        token = call_kwargs["clientToken"]
         # UUID4 format: 8-4-4-4-12 hex chars
         assert len(token) == 36
         assert token.count("-") == 4
@@ -123,7 +123,7 @@ class TestSageMakerUnifiedStudioNotebookHook:
 
         assert result == expected
         self.mock_client.get_notebook_run.assert_called_once_with(
-            domain_identifier=DOMAIN_ID,
+            domainIdentifier=DOMAIN_ID,
             identifier=NOTEBOOK_RUN_ID,
         )
 
@@ -208,7 +208,7 @@ class TestSageMakerUnifiedStudioNotebookHook:
                 NOTEBOOK_RUN_ID,
                 domain_identifier=DOMAIN_ID,
                 waiter_delay=5,
-                timeout_configuration={"run_timeout_in_minutes": 1},
+                timeout_configuration={"runTimeoutInMinutes": 1},
             )
 
         assert self.mock_client.get_notebook_run.call_count == 12

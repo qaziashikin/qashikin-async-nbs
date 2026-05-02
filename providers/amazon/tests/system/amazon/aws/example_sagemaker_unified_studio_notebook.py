@@ -93,8 +93,8 @@ with DAG(
             "param1": "value1",
             "param2": "value2",
         },  # optional
-        compute_configuration={"instance_type": "ml.m5.large"},  # optional
-        timeout_configuration={"run_timeout_in_minutes": 1440},  # optional
+        compute_configuration={"instanceType": "sc.m5.large"},  # optional
+        timeout_configuration={"runTimeoutInMinutes": 1440},  # optional
         wait_for_completion=True,  # optional
         waiter_delay=30,  # optional
         deferrable=False,  # optional
