@@ -24,6 +24,7 @@ import logging
 import math
 import time
 import uuid
+from functools import cached_property
 from typing import Any
 
 from airflow.providers.amazon.aws.hooks.base_aws import AwsBaseHook
@@ -54,8 +55,22 @@ class SageMakerUnifiedStudioNotebookHook(AwsBaseHook):
     """
 
     def __init__(self, *args: Any, **kwargs: Any):
+        self._endpoint_url = kwargs.pop("endpoint_url", None)
         kwargs.setdefault("client_type", "datazone")
         super().__init__(*args, **kwargs)
+
+    @cached_property
+    def conn(self):
+        """Get the underlying boto3 DataZone client, optionally with a custom endpoint URL."""
+        if self._endpoint_url:
+            session = self.get_session()
+            return session.client(
+                "datazone",
+                endpoint_url=self._endpoint_url,
+                config=self.config,
+                verify=self.verify,
+            )
+        return super().conn
 
     def _validate_api_availability(self) -> None:
         """
@@ -244,7 +259,7 @@ class SageMakerUnifiedStudioNotebookHook(AwsBaseHook):
             if no outputs were written or the file cannot be parsed.
         """
         bucket = self.get_project_s3_path(owning_project_identifier)
-        key = f"sys/notebooks/{notebook_identifier}/runs/{notebook_run_id}/notebook_outputs.json"
+        key = f"sys/notebooks/{notebook_identifier}/notebook_outputs.json"
 
         log = logging.getLogger(__name__)
         log.info("Reading notebook outputs from s3://%s/%s", bucket, key)

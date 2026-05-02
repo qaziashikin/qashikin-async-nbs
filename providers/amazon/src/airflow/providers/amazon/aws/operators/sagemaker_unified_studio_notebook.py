@@ -86,6 +86,7 @@ class SageMakerUnifiedStudioNotebookOperator(AwsBaseOperator[SageMakerUnifiedStu
     :param waiter_delay: Interval in seconds to poll the notebook run status (default: 10).
     :param deferrable: If True, the operator will defer polling to the trigger,
         freeing up the worker slot while waiting. (default: False)
+    :param endpoint_url: Optional custom endpoint URL for the DataZone API.
 
     .. seealso::
         For more information on how to use this operator, take a look at the guide:
@@ -117,6 +118,7 @@ class SageMakerUnifiedStudioNotebookOperator(AwsBaseOperator[SageMakerUnifiedStu
         wait_for_completion: bool = True,
         waiter_delay: int = 10,
         deferrable: bool = conf.getboolean("operators", "default_deferrable", fallback=False),
+        endpoint_url: str | None = None,
         **kwargs,
     ):
         super().__init__(**kwargs)
@@ -130,6 +132,14 @@ class SageMakerUnifiedStudioNotebookOperator(AwsBaseOperator[SageMakerUnifiedStu
         self.wait_for_completion = wait_for_completion
         self.waiter_delay = waiter_delay
         self.deferrable = deferrable
+        self.endpoint_url = endpoint_url
+
+    @property
+    def _hook_parameters(self):
+        params = super()._hook_parameters
+        if self.endpoint_url:
+            params["endpoint_url"] = self.endpoint_url
+        return params
 
     def _push_notebook_outputs(self, context: Context, notebook_run_id: str) -> dict[str, Any]:
         """
