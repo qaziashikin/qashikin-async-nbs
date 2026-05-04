@@ -825,6 +825,7 @@ InstanceFlexibilityPolicy
 InstanceGroupConfig
 InstanceSelection
 instanceTemplates
+instanceType
 InstanceType
 instantiation
 integrations
@@ -1389,6 +1390,7 @@ RunQueryOperator
 RunQuerySensor
 runspace
 RunSubmitTaskSettings
+runTimeoutInMinutes
 runtime
 runtimes
 SaaS

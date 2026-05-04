@@ -19,7 +19,7 @@
 Amazon SageMaker Unified Studio
 ===============================
 
-`Amazon SageMaker Unified Studio <https://aws.amazon.com/sagemaker/unified-studio/>`__ (SMUS) is a unified development experience that
+`Amazon SageMaker Unified Studio <https://aws.amazon.com/sagemaker/unified-studio/>`__ is a unified development experience that
 brings together AWS data, analytics, artificial intelligence (AI), and machine learning (ML) services.
 It provides a place to build, deploy, execute, and monitor end-to-end workflows from a single interface.
 This helps drive collaboration across teams and facilitate agile development.
@@ -62,7 +62,7 @@ Run SageMaker Unified Studio notebooks
 ===============================================
 
 Use :class:`~airflow.providers.amazon.aws.operators.sagemaker_unified_studio_notebook.SageMakerUnifiedStudioNotebookOperator`
-to execute SMUS notebooks through the DataZone ``StartNotebookRun`` API.
+to execute SageMaker Unified Studio notebooks through the DataZone ``StartNotebookRun`` API.
 
 The notebook is identified by its notebook ID (e.g. ``nb-1234567890``), along with the domain ID and project ID
 where the notebook resides.
