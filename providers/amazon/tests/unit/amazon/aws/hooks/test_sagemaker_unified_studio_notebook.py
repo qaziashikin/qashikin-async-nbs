@@ -301,32 +301,12 @@ class TestSageMakerUnifiedStudioNotebookHook:
 
     # --- get_notebook_outputs ---
 
-    def _setup_s3_mock(self, s3_body=None, s3_exception=None):
-        """Helper to set up mocks for get_notebook_outputs tests."""
-        mock_session = MagicMock()
-        mock_s3_client = MagicMock()
-        mock_session.client.return_value = mock_s3_client
-
-        if s3_exception:
-            mock_s3_client.get_object.side_effect = s3_exception
-        elif s3_body is not None:
-            body = MagicMock()
-            body.read.return_value = s3_body.encode("utf-8") if isinstance(s3_body, str) else s3_body
-            mock_s3_client.get_object.return_value = {"Body": body}
-
-        # Set up NoSuchKey exception class on the client
-        no_such_key = type("NoSuchKey", (Exception,), {})
-        mock_s3_client.exceptions.NoSuchKey = no_such_key
-
-        return mock_session, mock_s3_client
-
     def test_get_notebook_outputs_success(self):
         """Reads and parses JSON outputs from S3."""
         outputs = {"name": "Alice", "age": 42}
-        mock_session, mock_s3_client = self._setup_s3_mock(s3_body=json.dumps(outputs))
 
         with (
-            patch.object(SageMakerUnifiedStudioNotebookHook, "get_session", return_value=mock_session),
+            patch(f"{HOOK_MODULE}.S3Hook") as mock_s3_hook_cls,
             patch.object(
                 SageMakerUnifiedStudioNotebookHook, "account_id", new_callable=PropertyMock
             ) as mock_account,
@@ -336,6 +316,7 @@ class TestSageMakerUnifiedStudioNotebookHook:
         ):
             mock_account.return_value = ACCOUNT_ID
             mock_region.return_value = REGION
+            mock_s3_hook_cls.return_value.read_key.return_value = json.dumps(outputs)
             result = self.hook.get_notebook_outputs(
                 notebook_identifier=NOTEBOOK_ID,
                 notebook_run_id=NOTEBOOK_RUN_ID,
@@ -345,16 +326,18 @@ class TestSageMakerUnifiedStudioNotebookHook:
         assert result == outputs
         expected_bucket = f"amazon-sagemaker-{ACCOUNT_ID}-{REGION}-{PROJECT_ID}"
         expected_key = f"sys/notebooks/{NOTEBOOK_ID}/runs/{NOTEBOOK_RUN_ID}/notebook_outputs.json"
-        mock_s3_client.get_object.assert_called_once_with(Bucket=expected_bucket, Key=expected_key)
+        mock_s3_hook_cls.return_value.read_key.assert_called_once_with(
+            key=expected_key, bucket_name=expected_bucket
+        )
 
     def test_get_notebook_outputs_no_such_key(self):
         """Returns empty dict when the outputs file does not exist in S3."""
-        mock_session, mock_s3_client = self._setup_s3_mock()
-        no_such_key = mock_s3_client.exceptions.NoSuchKey
-        mock_s3_client.get_object.side_effect = no_such_key("Not found")
+        from botocore.exceptions import ClientError
+
+        error_response = {"Error": {"Code": "NoSuchKey", "Message": "Not found"}}
 
         with (
-            patch.object(SageMakerUnifiedStudioNotebookHook, "get_session", return_value=mock_session),
+            patch(f"{HOOK_MODULE}.S3Hook") as mock_s3_hook_cls,
             patch.object(
                 SageMakerUnifiedStudioNotebookHook, "account_id", new_callable=PropertyMock
             ) as mock_account,
@@ -364,6 +347,7 @@ class TestSageMakerUnifiedStudioNotebookHook:
         ):
             mock_account.return_value = ACCOUNT_ID
             mock_region.return_value = REGION
+            mock_s3_hook_cls.return_value.read_key.side_effect = ClientError(error_response, "GetObject")
             result = self.hook.get_notebook_outputs(
                 notebook_identifier=NOTEBOOK_ID,
                 notebook_run_id=NOTEBOOK_RUN_ID,
@@ -374,10 +358,8 @@ class TestSageMakerUnifiedStudioNotebookHook:
 
     def test_get_notebook_outputs_invalid_json(self):
         """Returns empty dict when S3 file contains invalid JSON."""
-        mock_session, mock_s3_client = self._setup_s3_mock(s3_body="not valid json {{{")
-
         with (
-            patch.object(SageMakerUnifiedStudioNotebookHook, "get_session", return_value=mock_session),
+            patch(f"{HOOK_MODULE}.S3Hook") as mock_s3_hook_cls,
             patch.object(
                 SageMakerUnifiedStudioNotebookHook, "account_id", new_callable=PropertyMock
             ) as mock_account,
@@ -387,6 +369,7 @@ class TestSageMakerUnifiedStudioNotebookHook:
         ):
             mock_account.return_value = ACCOUNT_ID
             mock_region.return_value = REGION
+            mock_s3_hook_cls.return_value.read_key.return_value = "not valid json {{{"
             result = self.hook.get_notebook_outputs(
                 notebook_identifier=NOTEBOOK_ID,
                 notebook_run_id=NOTEBOOK_RUN_ID,
@@ -397,10 +380,8 @@ class TestSageMakerUnifiedStudioNotebookHook:
 
     def test_get_notebook_outputs_non_dict_json(self):
         """Returns empty dict when S3 file contains valid JSON but not a dict."""
-        mock_session, mock_s3_client = self._setup_s3_mock(s3_body=json.dumps(["a", "b"]))
-
         with (
-            patch.object(SageMakerUnifiedStudioNotebookHook, "get_session", return_value=mock_session),
+            patch(f"{HOOK_MODULE}.S3Hook") as mock_s3_hook_cls,
             patch.object(
                 SageMakerUnifiedStudioNotebookHook, "account_id", new_callable=PropertyMock
             ) as mock_account,
@@ -410,6 +391,7 @@ class TestSageMakerUnifiedStudioNotebookHook:
         ):
             mock_account.return_value = ACCOUNT_ID
             mock_region.return_value = REGION
+            mock_s3_hook_cls.return_value.read_key.return_value = json.dumps(["a", "b"])
             result = self.hook.get_notebook_outputs(
                 notebook_identifier=NOTEBOOK_ID,
                 notebook_run_id=NOTEBOOK_RUN_ID,
@@ -420,11 +402,8 @@ class TestSageMakerUnifiedStudioNotebookHook:
 
     def test_get_notebook_outputs_unexpected_exception(self):
         """Returns empty dict on unexpected S3 errors."""
-        mock_session, mock_s3_client = self._setup_s3_mock()
-        mock_s3_client.get_object.side_effect = ConnectionError("Network issue")
-
         with (
-            patch.object(SageMakerUnifiedStudioNotebookHook, "get_session", return_value=mock_session),
+            patch(f"{HOOK_MODULE}.S3Hook") as mock_s3_hook_cls,
             patch.object(
                 SageMakerUnifiedStudioNotebookHook, "account_id", new_callable=PropertyMock
             ) as mock_account,
@@ -434,6 +413,7 @@ class TestSageMakerUnifiedStudioNotebookHook:
         ):
             mock_account.return_value = ACCOUNT_ID
             mock_region.return_value = REGION
+            mock_s3_hook_cls.return_value.read_key.side_effect = ConnectionError("Network issue")
             result = self.hook.get_notebook_outputs(
                 notebook_identifier=NOTEBOOK_ID,
                 notebook_run_id=NOTEBOOK_RUN_ID,
@@ -444,10 +424,8 @@ class TestSageMakerUnifiedStudioNotebookHook:
 
     def test_get_notebook_outputs_empty_dict(self):
         """Returns empty dict when S3 file contains an empty JSON object."""
-        mock_session, mock_s3_client = self._setup_s3_mock(s3_body=json.dumps({}))
-
         with (
-            patch.object(SageMakerUnifiedStudioNotebookHook, "get_session", return_value=mock_session),
+            patch(f"{HOOK_MODULE}.S3Hook") as mock_s3_hook_cls,
             patch.object(
                 SageMakerUnifiedStudioNotebookHook, "account_id", new_callable=PropertyMock
             ) as mock_account,
@@ -457,6 +435,7 @@ class TestSageMakerUnifiedStudioNotebookHook:
         ):
             mock_account.return_value = ACCOUNT_ID
             mock_region.return_value = REGION
+            mock_s3_hook_cls.return_value.read_key.return_value = json.dumps({})
             result = self.hook.get_notebook_outputs(
                 notebook_identifier=NOTEBOOK_ID,
                 notebook_run_id=NOTEBOOK_RUN_ID,

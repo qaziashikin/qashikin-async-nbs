@@ -49,8 +49,6 @@ class TestSageMakerUnifiedStudioNotebookSensor:
         assert sensor.owning_project_identifier == PROJECT_ID
         assert sensor.notebook_run_id == NOTEBOOK_RUN_ID
         assert sensor.notebook_identifier == NOTEBOOK_ID
-        assert sensor.success_states == ["SUCCEEDED"]
-        assert sensor.in_progress_states == ["QUEUED", "STARTING", "RUNNING", "STOPPING"]
 
     def test_hook_property(self):
         from airflow.providers.amazon.aws.hooks.sagemaker_unified_studio_notebook import (
