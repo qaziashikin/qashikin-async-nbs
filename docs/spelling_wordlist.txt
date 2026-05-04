@@ -825,8 +825,8 @@ InstanceFlexibilityPolicy
 InstanceGroupConfig
 InstanceSelection
 instanceTemplates
-instanceType
 InstanceType
+instanceType
 instantiation
 integrations
 ints
@@ -1390,8 +1390,8 @@ RunQueryOperator
 RunQuerySensor
 runspace
 RunSubmitTaskSettings
-runTimeoutInMinutes
 runtime
+runTimeoutInMinutes
 runtimes
 SaaS
 sade
