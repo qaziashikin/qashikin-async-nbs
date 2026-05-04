@@ -28,6 +28,8 @@ from collections.abc import Sequence
 from typing import TYPE_CHECKING
 
 from airflow.providers.amazon.aws.hooks.sagemaker_unified_studio_notebook import (
+    NOTEBOOK_RUN_IN_PROGRESS_STATES,
+    NOTEBOOK_RUN_SUCCESS_STATES,
     SageMakerUnifiedStudioNotebookHook,
 )
 from airflow.providers.amazon.aws.sensors.base_aws import AwsBaseSensor
@@ -87,19 +89,17 @@ class SageMakerUnifiedStudioNotebookSensor(AwsBaseSensor[SageMakerUnifiedStudioN
         self.owning_project_identifier = owning_project_identifier
         self.notebook_run_id = notebook_run_id
         self.notebook_identifier = notebook_identifier
-        self.success_states = ["SUCCEEDED"]
-        self.in_progress_states = ["QUEUED", "STARTING", "RUNNING", "STOPPING"]
 
     # override from base sensor
     def poke(self, context: Context) -> bool:
         response = self.hook.get_notebook_run(self.notebook_run_id, domain_identifier=self.domain_identifier)
         status = response.get("status", "")
 
-        if status in self.success_states:
+        if status in NOTEBOOK_RUN_SUCCESS_STATES:
             self.log.info("Exiting notebook run %s. State: %s", self.notebook_run_id, status)
             return True
 
-        if status in self.in_progress_states:
+        if status in NOTEBOOK_RUN_IN_PROGRESS_STATES:
             return False
 
         error_message = f"Exiting notebook run {self.notebook_run_id}. State: {status}"

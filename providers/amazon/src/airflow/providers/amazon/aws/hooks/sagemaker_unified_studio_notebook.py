@@ -27,9 +27,24 @@ import uuid
 from functools import cached_property
 from typing import Any
 
+from botocore.exceptions import ClientError
+
 from airflow.providers.amazon.aws.hooks.base_aws import AwsBaseHook
+from airflow.providers.amazon.aws.hooks.s3 import S3Hook
 
 TWELVE_HOURS_IN_MINUTES = 12 * 60
+
+#: Minimum botocore version required for the DataZone NotebookRun APIs.
+MIN_BOTOCORE_VERSION = "1.43.1"
+
+#: Terminal success states for a notebook run.
+NOTEBOOK_RUN_SUCCESS_STATES = frozenset({"SUCCEEDED"})
+
+#: States indicating a notebook run is still in progress.
+NOTEBOOK_RUN_IN_PROGRESS_STATES = frozenset({"QUEUED", "STARTING", "RUNNING", "STOPPING"})
+
+#: Terminal failure states for a notebook run.
+NOTEBOOK_RUN_FAILURE_STATES = frozenset({"FAILED", "STOPPED"})
 
 
 class SageMakerUnifiedStudioNotebookHook(AwsBaseHook):
@@ -83,8 +98,8 @@ class SageMakerUnifiedStudioNotebookHook(AwsBaseHook):
             if not hasattr(self.conn, method_name):
                 raise RuntimeError(
                     f"The '{method_name}' API is not available in the installed boto3/botocore version. "
-                    "Please upgrade boto3/botocore to a version that supports the DataZone "
-                    "NotebookRun APIs."
+                    f"Please upgrade botocore to version {MIN_BOTOCORE_VERSION} or later to use the "
+                    f"DataZone NotebookRun APIs: pip install 'botocore>={MIN_BOTOCORE_VERSION}'"
                 )
 
     def start_notebook_run(
@@ -199,9 +214,9 @@ class SageMakerUnifiedStudioNotebookHook(AwsBaseHook):
         :return: A dict with Status and NotebookRunId on success, None if still in progress.
         :raises RuntimeError: If the run has failed.
         """
-        in_progress_statuses = {"QUEUED", "STARTING", "RUNNING", "STOPPING"}
-        finished_statuses = {"SUCCEEDED"}
-        failure_statuses = {"FAILED", "STOPPED"}
+        in_progress_statuses = NOTEBOOK_RUN_IN_PROGRESS_STATES
+        finished_statuses = NOTEBOOK_RUN_SUCCESS_STATES
+        failure_statuses = NOTEBOOK_RUN_FAILURE_STATES
 
         if status in in_progress_statuses:
             self.log.info(
@@ -264,10 +279,9 @@ class SageMakerUnifiedStudioNotebookHook(AwsBaseHook):
         log = logging.getLogger(__name__)
         log.info("Reading notebook outputs from s3://%s/%s", bucket, key)
 
+        s3_hook = S3Hook(aws_conn_id=self.aws_conn_id, region_name=self.conn_region_name)
         try:
-            s3_client = self.get_session().client("s3", region_name=self.conn_region_name)
-            response = s3_client.get_object(Bucket=bucket, Key=key)
-            content = response["Body"].read().decode("utf-8")
+            content = s3_hook.read_key(key=key, bucket_name=bucket)
             outputs = json.loads(content)
             if not isinstance(outputs, dict):
                 log.warning(
@@ -278,8 +292,16 @@ class SageMakerUnifiedStudioNotebookHook(AwsBaseHook):
                 return {}
             log.info("Successfully read %d notebook output(s).", len(outputs))
             return outputs
-        except s3_client.exceptions.NoSuchKey:
-            log.info("No notebook outputs found at s3://%s/%s.", bucket, key)
+        except ClientError as e:
+            if e.response.get("Error", {}).get("Code") == "NoSuchKey":
+                log.info("No notebook outputs found at s3://%s/%s.", bucket, key)
+                return {}
+            log.warning(
+                "Unexpected error reading notebook outputs from s3://%s/%s, ignoring.",
+                bucket,
+                key,
+                exc_info=True,
+            )
             return {}
         except (json.JSONDecodeError, UnicodeDecodeError):
             log.warning(

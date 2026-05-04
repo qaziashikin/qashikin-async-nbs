@@ -70,7 +70,6 @@ class SageMakerUnifiedStudioNotebookOperator(AwsBaseOperator[SageMakerUnifiedStu
             timeout_configuration={"runTimeoutInMinutes": 1440},
         )
 
-    :param task_id: A unique, meaningful id for the task.
     :param notebook_identifier: The ID of the notebook to execute.
     :param domain_identifier: The ID of the SageMaker Unified Studio domain containing the notebook.
     :param owning_project_identifier: The ID of the SageMaker Unified Studio project containing the notebook.
