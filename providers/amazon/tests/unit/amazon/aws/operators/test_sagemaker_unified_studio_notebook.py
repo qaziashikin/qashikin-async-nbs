@@ -34,6 +34,7 @@ DOMAIN_ID = "dzd_example"
 PROJECT_ID = "proj_example"
 DAG_ID = "test_dag"
 NOTEBOOK_RUN_ID = "run_abc123"
+NOTEBOOK_OUTPUT_PREFIX = "NOTEBOOK_OUTPUT"
 
 HOOK_PATH = (
     "airflow.providers.amazon.aws.operators.sagemaker_unified_studio_notebook"
@@ -350,7 +351,7 @@ class TestSageMakerUnifiedStudioNotebookOperator:
 
     @patch(HOOK_PATH, new_callable=PropertyMock)
     def test_execute_pushes_notebook_outputs_to_xcom(self, mock_hook_prop):
-        """When notebook outputs exist, each key-value pair is pushed to xcom."""
+        """When notebook outputs exist, each key-value pair is pushed to xcom with NOTEBOOK_OUTPUT prefix."""
         mock_hook = MagicMock()
         mock_hook_prop.return_value = mock_hook
         mock_hook.start_notebook_run.return_value = {"id": NOTEBOOK_RUN_ID}
@@ -371,21 +372,24 @@ class TestSageMakerUnifiedStudioNotebookOperator:
 
         assert result == {
             "notebook_run_id": NOTEBOOK_RUN_ID,
-            "name": "Alice",
-            "age": 42,
+            f"{NOTEBOOK_OUTPUT_PREFIX}.name": "Alice",
+            f"{NOTEBOOK_OUTPUT_PREFIX}.age": 42,
         }
         mock_hook.get_notebook_outputs.assert_called_once_with(
             notebook_identifier=NOTEBOOK_ID,
             notebook_run_id=NOTEBOOK_RUN_ID,
             owning_project_identifier=PROJECT_ID,
         )
-        context["ti"].xcom_push.assert_any_call(key="name", value="Alice")
-        context["ti"].xcom_push.assert_any_call(key="age", value=42)
-        assert context["ti"].xcom_push.call_count == 2
+        context["ti"].xcom_push.assert_any_call(key="notebook_run_id", value=NOTEBOOK_RUN_ID)
+        context["ti"].xcom_push.assert_any_call(key=f"{NOTEBOOK_OUTPUT_PREFIX}.name", value="Alice")
+        context["ti"].xcom_push.assert_any_call(key=f"{NOTEBOOK_OUTPUT_PREFIX}.age", value=42)
+        assert (
+            context["ti"].xcom_push.call_count == 4
+        )  # sagemaker_unified_studio + notebook_run_id + 2 outputs
 
     @patch(HOOK_PATH, new_callable=PropertyMock)
     def test_execute_no_outputs_does_not_push_xcom(self, mock_hook_prop):
-        """When no notebook outputs exist, xcom_push is not called."""
+        """When no notebook outputs exist, only notebook_run_id is pushed to xcom."""
         mock_hook = MagicMock()
         mock_hook_prop.return_value = mock_hook
         mock_hook.start_notebook_run.return_value = {"id": NOTEBOOK_RUN_ID}
@@ -402,7 +406,9 @@ class TestSageMakerUnifiedStudioNotebookOperator:
         result = op.execute(context)
 
         assert result == {"notebook_run_id": NOTEBOOK_RUN_ID}
-        context["ti"].xcom_push.assert_not_called()
+        context["ti"].xcom_push.assert_any_call(key="notebook_run_id", value=NOTEBOOK_RUN_ID)
+        # sagemaker_unified_studio link is also pushed by persist()
+        assert context["ti"].xcom_push.call_count == 2
 
     @patch(HOOK_PATH, new_callable=PropertyMock)
     def test_execute_no_wait_skips_outputs(self, mock_hook_prop):
@@ -426,7 +432,7 @@ class TestSageMakerUnifiedStudioNotebookOperator:
 
     @patch(HOOK_PATH, new_callable=PropertyMock)
     def test_execute_complete_pushes_notebook_outputs_to_xcom(self, mock_hook_prop):
-        """execute_complete reads outputs from S3 and pushes to xcom."""
+        """execute_complete reads outputs from S3 and pushes to xcom with NOTEBOOK_OUTPUT prefix."""
         mock_hook = MagicMock()
         mock_hook_prop.return_value = mock_hook
         mock_hook.get_notebook_outputs.return_value = {"result": "success_value"}
@@ -443,13 +449,14 @@ class TestSageMakerUnifiedStudioNotebookOperator:
 
         assert result == {
             "notebook_run_id": NOTEBOOK_RUN_ID,
-            "result": "success_value",
+            f"{NOTEBOOK_OUTPUT_PREFIX}.result": "success_value",
         }
-        context["ti"].xcom_push.assert_called_once_with(key="result", value="success_value")
+        context["ti"].xcom_push.assert_any_call(key="notebook_run_id", value=NOTEBOOK_RUN_ID)
+        context["ti"].xcom_push.assert_any_call(key=f"{NOTEBOOK_OUTPUT_PREFIX}.result", value="success_value")
 
     @patch(HOOK_PATH, new_callable=PropertyMock)
     def test_execute_complete_no_outputs(self, mock_hook_prop):
-        """execute_complete with no outputs returns only notebook_run_id."""
+        """execute_complete with no outputs returns only notebook_run_id and pushes it to xcom."""
         mock_hook = MagicMock()
         mock_hook_prop.return_value = mock_hook
         mock_hook.get_notebook_outputs.return_value = {}
@@ -465,4 +472,4 @@ class TestSageMakerUnifiedStudioNotebookOperator:
         result = op.execute_complete(context=context, event=event)
 
         assert result == {"notebook_run_id": NOTEBOOK_RUN_ID}
-        context["ti"].xcom_push.assert_not_called()
+        context["ti"].xcom_push.assert_called_once_with(key="notebook_run_id", value=NOTEBOOK_RUN_ID)

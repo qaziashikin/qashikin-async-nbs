@@ -66,6 +66,8 @@ class SageMakerUnifiedStudioNotebookTrigger(AwsBaseWaiterTrigger):
             raise ValueError("waiter_delay must be a positive integer")
         run_timeout = (timeout_configuration or {}).get("runTimeoutInMinutes", TWELVE_HOURS_IN_MINUTES)
         waiter_max_attempts = max(1, math.ceil(run_timeout * 60 / waiter_delay))
+        # Remove waiter_max_attempts from kwargs if passed through, since we compute it here
+        kwargs.pop("waiter_max_attempts", None)
 
         self.notebook_run_id = notebook_run_id
         self.domain_identifier = domain_identifier

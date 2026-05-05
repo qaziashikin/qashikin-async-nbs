@@ -28,6 +28,7 @@ from collections.abc import Sequence
 from typing import TYPE_CHECKING
 
 from airflow.providers.amazon.aws.hooks.sagemaker_unified_studio_notebook import (
+    NOTEBOOK_OUTPUT_KEY_PREFIX,
     NOTEBOOK_RUN_IN_PROGRESS_STATES,
     NOTEBOOK_RUN_SUCCESS_STATES,
     SageMakerUnifiedStudioNotebookHook,
@@ -70,6 +71,7 @@ class SageMakerUnifiedStudioNotebookSensor(AwsBaseSensor[SageMakerUnifiedStudioN
     aws_hook_class = SageMakerUnifiedStudioNotebookHook
     template_fields: Sequence[str] = aws_template_fields(
         "domain_identifier",
+        "endpoint_url",
         "notebook_identifier",
         "notebook_run_id",
         "owning_project_identifier",
@@ -82,6 +84,7 @@ class SageMakerUnifiedStudioNotebookSensor(AwsBaseSensor[SageMakerUnifiedStudioN
         owning_project_identifier: str,
         notebook_run_id: str,
         notebook_identifier: str,
+        endpoint_url: str | None = None,
         **kwargs,
     ):
         super().__init__(**kwargs)
@@ -89,6 +92,14 @@ class SageMakerUnifiedStudioNotebookSensor(AwsBaseSensor[SageMakerUnifiedStudioN
         self.owning_project_identifier = owning_project_identifier
         self.notebook_run_id = notebook_run_id
         self.notebook_identifier = notebook_identifier
+        self.endpoint_url = endpoint_url
+
+    @property
+    def _hook_parameters(self):
+        params = super()._hook_parameters
+        if self.endpoint_url:
+            params["endpoint_url"] = self.endpoint_url
+        return params
 
     # override from base sensor
     def poke(self, context: Context) -> bool:
@@ -119,4 +130,4 @@ class SageMakerUnifiedStudioNotebookSensor(AwsBaseSensor[SageMakerUnifiedStudioN
         )
         if outputs:
             for key, value in outputs.items():
-                context["ti"].xcom_push(key=key, value=value)
+                context["ti"].xcom_push(key=f"{NOTEBOOK_OUTPUT_KEY_PREFIX}.{key}", value=value)

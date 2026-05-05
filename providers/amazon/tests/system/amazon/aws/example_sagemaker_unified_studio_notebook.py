@@ -118,7 +118,7 @@ with DAG(
         domain_identifier=domain_id,
         owning_project_identifier=project_id,
         notebook_identifier=notebook_id,
-        notebook_run_id=run_notebook.output,
+        notebook_run_id=run_notebook.output["notebook_run_id"],
     )
     # [END howto_sensor_sagemaker_unified_studio_notebook]
 
@@ -139,8 +139,8 @@ with DAG(
         domain_identifier=domain_id,
         owning_project_identifier=project_id,
         notebook_parameters={
-            "employee_name": "{{ task_instance.xcom_pull(task_ids='notebook-a-task', key='name') }}",
-            "employee_age": "{{ task_instance.xcom_pull(task_ids='notebook-a-task', key='age') }}",
+            "employee_name": "{{ task_instance.xcom_pull(task_ids='notebook-a-task', key='NOTEBOOK_OUTPUT.name') }}",
+            "employee_age": "{{ task_instance.xcom_pull(task_ids='notebook-a-task', key='NOTEBOOK_OUTPUT.age') }}",
         },
         wait_for_completion=True,
     )

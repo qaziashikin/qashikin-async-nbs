@@ -46,6 +46,9 @@ NOTEBOOK_RUN_IN_PROGRESS_STATES = frozenset({"QUEUED", "STARTING", "RUNNING", "S
 #: Terminal failure states for a notebook run.
 NOTEBOOK_RUN_FAILURE_STATES = frozenset({"FAILED", "STOPPED"})
 
+#: XCom key prefix for notebook output variables.
+NOTEBOOK_OUTPUT_KEY_PREFIX = "NOTEBOOK_OUTPUT"
+
 
 class SageMakerUnifiedStudioNotebookHook(AwsBaseHook):
     """
@@ -293,7 +296,8 @@ class SageMakerUnifiedStudioNotebookHook(AwsBaseHook):
             log.info("Successfully read %d notebook output(s).", len(outputs))
             return outputs
         except ClientError as e:
-            if e.response.get("Error", {}).get("Code") == "NoSuchKey":
+            error_code = e.response.get("Error", {}).get("Code")
+            if error_code in ("NoSuchKey", "404"):
                 log.info("No notebook outputs found at s3://%s/%s.", bucket, key)
                 return {}
             log.warning(

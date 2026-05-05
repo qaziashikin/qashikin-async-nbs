@@ -28,6 +28,7 @@ from collections.abc import Sequence
 from typing import TYPE_CHECKING, Any
 
 from airflow.providers.amazon.aws.hooks.sagemaker_unified_studio_notebook import (
+    NOTEBOOK_OUTPUT_KEY_PREFIX,
     SageMakerUnifiedStudioNotebookHook,
 )
 from airflow.providers.amazon.aws.links.sagemaker_unified_studio import (
@@ -66,7 +67,7 @@ class SageMakerUnifiedStudioNotebookOperator(AwsBaseOperator[SageMakerUnifiedStu
             domain_identifier="dzd_example",
             owning_project_identifier="proj_example",
             notebook_parameters={"param1": "value1"},
-            compute_configuration={"instanceType": "ml.m5.large"},
+            compute_configuration={"instanceType": "sc.m5.large"},
             timeout_configuration={"runTimeoutInMinutes": 1440},
         )
 
@@ -76,7 +77,7 @@ class SageMakerUnifiedStudioNotebookOperator(AwsBaseOperator[SageMakerUnifiedStu
     :param client_token: Optional idempotency token. Auto-generated if not provided.
     :param notebook_parameters: Optional dict of parameters to pass to the notebook.
     :param compute_configuration: Optional compute config.
-        Example: {"instanceType": "ml.m5.large"}
+        Example: {"instanceType": "sc.m5.large"}
     :param timeout_configuration: Optional timeout settings.
         Example: {"runTimeoutInMinutes": 1440}
     :param wait_for_completion: If True, wait for the notebook run to finish before
@@ -152,6 +153,7 @@ class SageMakerUnifiedStudioNotebookOperator(AwsBaseOperator[SageMakerUnifiedStu
         :return: A flat dict containing notebook_run_id and all notebook outputs.
         """
         result: dict[str, Any] = {"notebook_run_id": notebook_run_id}
+        context["ti"].xcom_push(key="notebook_run_id", value=notebook_run_id)
         outputs = self.hook.get_notebook_outputs(
             notebook_identifier=self.notebook_identifier,
             notebook_run_id=notebook_run_id,
@@ -159,11 +161,17 @@ class SageMakerUnifiedStudioNotebookOperator(AwsBaseOperator[SageMakerUnifiedStu
         )
         if outputs:
             for key, value in outputs.items():
-                context["ti"].xcom_push(key=key, value=value)
-            result.update(outputs)
+                context["ti"].xcom_push(key=f"{NOTEBOOK_OUTPUT_KEY_PREFIX}.{key}", value=value)
+            result.update({f"{NOTEBOOK_OUTPUT_KEY_PREFIX}.{k}": v for k, v in outputs.items()})
         return result
 
     def execute(self, context: Context):
+        SageMakerUnifiedStudioLink.persist(
+            context=context,
+            operator=self,
+            region_name=self.hook.conn_region_name,
+            aws_partition=self.hook.conn_partition,
+        )
         workflow_name = context["dag"].dag_id  # Workflow name is the same as the dag_id
         response = self.hook.start_notebook_run(
             notebook_identifier=self.notebook_identifier,

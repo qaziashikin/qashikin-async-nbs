@@ -29,6 +29,7 @@ DOMAIN_ID = "dzd_example"
 PROJECT_ID = "proj_example"
 NOTEBOOK_ID = "nb-1234567890"
 NOTEBOOK_RUN_ID = "nr-1234567890"
+NOTEBOOK_OUTPUT_PREFIX = "NOTEBOOK_OUTPUT"
 
 HOOK_PATH = (
     "airflow.providers.amazon.aws.sensors.sagemaker_unified_studio_notebook"
@@ -49,6 +50,18 @@ class TestSageMakerUnifiedStudioNotebookSensor:
         assert sensor.owning_project_identifier == PROJECT_ID
         assert sensor.notebook_run_id == NOTEBOOK_RUN_ID
         assert sensor.notebook_identifier == NOTEBOOK_ID
+        assert sensor.endpoint_url is None
+
+    def test_init_with_endpoint_url(self):
+        sensor = SageMakerUnifiedStudioNotebookSensor(
+            task_id="test_task",
+            domain_identifier=DOMAIN_ID,
+            owning_project_identifier=PROJECT_ID,
+            notebook_run_id=NOTEBOOK_RUN_ID,
+            notebook_identifier=NOTEBOOK_ID,
+            endpoint_url="https://custom.endpoint.example.com",
+        )
+        assert sensor.endpoint_url == "https://custom.endpoint.example.com"
 
     def test_hook_property(self):
         from airflow.providers.amazon.aws.hooks.sagemaker_unified_studio_notebook import (
@@ -208,7 +221,7 @@ class TestSageMakerUnifiedStudioNotebookSensor:
             notebook_run_id=NOTEBOOK_RUN_ID,
             owning_project_identifier=PROJECT_ID,
         )
-        context["ti"].xcom_push.assert_called_once_with(key="name", value="Alice")
+        context["ti"].xcom_push.assert_called_once_with(key=f"{NOTEBOOK_OUTPUT_PREFIX}.name", value="Alice")
 
     @patch(HOOK_PATH, new_callable=PropertyMock)
     @patch.object(SageMakerUnifiedStudioNotebookSensor, "poke", return_value=True)
@@ -252,6 +265,6 @@ class TestSageMakerUnifiedStudioNotebookSensor:
         sensor.execute(context=context)
 
         assert context["ti"].xcom_push.call_count == 3
-        context["ti"].xcom_push.assert_any_call(key="name", value="Alice")
-        context["ti"].xcom_push.assert_any_call(key="age", value=42)
-        context["ti"].xcom_push.assert_any_call(key="dept", value="Engineering")
+        context["ti"].xcom_push.assert_any_call(key=f"{NOTEBOOK_OUTPUT_PREFIX}.name", value="Alice")
+        context["ti"].xcom_push.assert_any_call(key=f"{NOTEBOOK_OUTPUT_PREFIX}.age", value=42)
+        context["ti"].xcom_push.assert_any_call(key=f"{NOTEBOOK_OUTPUT_PREFIX}.dept", value="Engineering")

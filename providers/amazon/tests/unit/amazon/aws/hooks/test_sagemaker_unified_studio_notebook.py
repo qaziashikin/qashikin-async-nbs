@@ -356,6 +356,32 @@ class TestSageMakerUnifiedStudioNotebookHook:
 
         assert result == {}
 
+    def test_get_notebook_outputs_404_error(self):
+        """Returns empty dict when S3 returns a 404 HTTP error code."""
+        from botocore.exceptions import ClientError
+
+        error_response = {"Error": {"Code": "404", "Message": "Not Found"}}
+
+        with (
+            patch(f"{HOOK_MODULE}.S3Hook") as mock_s3_hook_cls,
+            patch.object(
+                SageMakerUnifiedStudioNotebookHook, "account_id", new_callable=PropertyMock
+            ) as mock_account,
+            patch.object(
+                SageMakerUnifiedStudioNotebookHook, "conn_region_name", new_callable=PropertyMock
+            ) as mock_region,
+        ):
+            mock_account.return_value = ACCOUNT_ID
+            mock_region.return_value = REGION
+            mock_s3_hook_cls.return_value.read_key.side_effect = ClientError(error_response, "HeadObject")
+            result = self.hook.get_notebook_outputs(
+                notebook_identifier=NOTEBOOK_ID,
+                notebook_run_id=NOTEBOOK_RUN_ID,
+                owning_project_identifier=PROJECT_ID,
+            )
+
+        assert result == {}
+
     def test_get_notebook_outputs_invalid_json(self):
         """Returns empty dict when S3 file contains invalid JSON."""
         with (
